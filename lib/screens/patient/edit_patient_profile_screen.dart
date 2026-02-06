@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/authentication_provider.dart';
 
 class EditPatientProfileScreen extends StatefulWidget {
   const EditPatientProfileScreen({super.key});
@@ -36,19 +36,29 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    _fullNameController.text = authProvider.user?.name ?? "";
-    _emailController.text = authProvider.user?.email ?? "";
-    _phoneController.text = authProvider.user?.id ?? "";
-    _dobController.text = authProvider.user?.dateOfBirth ?? "";
-    _heightController.text = authProvider.user?.height.toString() ?? "";
-    _weightController.text = authProvider.user?.weight.toString() ?? "";
-    _addressController.text = authProvider.user?.address ?? "";
-    _emergencyNameController.text = authProvider.user?.emergencyName ?? "";
-    _emergencyContactController.text = authProvider.user?.emergencyContact ?? "";
-    _allergiesController.text = authProvider.user?.allergies ?? "";
-    _medicationsController.text = authProvider.user?.medications ?? "";
-    _conditionsController.text = authProvider.user?.conditions ?? "";
+    _loadUserData();
+  }
+
+  void _loadUserData() {
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final patient = authProvider.patient;
+
+    if (patient != null) {
+      _fullNameController.text = patient.name;
+      _emailController.text = patient.email;
+      _phoneController.text = patient.phoneNumber;
+      _dobController.text = patient.dateOfBirth ?? '';
+      _heightController.text = patient.height?.toString() ?? '';
+      _weightController.text = patient.weight?.toString() ?? '';
+      _addressController.text = patient.address ?? '';
+      _emergencyNameController.text = patient.emergencyName ?? '';
+      _emergencyContactController.text = patient.emergencyContact ?? '';
+      _allergiesController.text = patient.allergies ?? '';
+      _medicationsController.text = patient.medications ?? '';
+      _conditionsController.text = patient.conditions ?? '';
+      _selectedGender = patient.gender!;
+      _selectedBloodGroup = patient.bloodGroup!;
+    }
   }
 
   @override
@@ -661,7 +671,7 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
       return;
     }
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
 
     setState(() => _isSaving = true);
 

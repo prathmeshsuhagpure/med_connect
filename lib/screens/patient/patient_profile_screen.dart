@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:med_connect/models/user_model.dart';
-import 'package:med_connect/providers/auth_provider.dart';
+import 'package:med_connect/models/user/patient_model.dart';
 import 'package:med_connect/screens/patient/edit_patient_profile_screen.dart';
 import 'package:med_connect/widgets/btm_nav_bar.dart';
 import 'package:provider/provider.dart';
+
+import '../../providers/authentication_provider.dart';
 
 class PatientProfileScreen extends StatefulWidget {
   const PatientProfileScreen({super.key});
@@ -17,12 +18,12 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthProvider>(
+    return Consumer<AuthenticationProvider>(
       builder: (context, authProvider, child) {
-        final user = authProvider.user;
+        final patient = authProvider.patient;
 
-        if (user == null) {
-          print("user: $user");
+        if (patient == null) {
+          print("patient: $patient");
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
@@ -37,7 +38,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
             child: SingleChildScrollView(
               child: Column(
                 children: [
-                  _buildProfileHeader(context, isMobile, isDarkMode, user),
+                  _buildProfileHeader(context, isMobile, isDarkMode, patient),
                   Padding(
                     padding: EdgeInsets.all(isMobile ? 16 : 24),
                     child: Column(
@@ -49,7 +50,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.person_outline,
                             "Full Name",
-                            user.name,
+                            patient.name,
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -57,7 +58,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.email_outlined,
                             "Email",
-                            user.email,
+                            patient.email,
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -65,7 +66,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.phone_outlined,
                             "Phone Number",
-                            user.phoneNumber,
+                            patient.phoneNumber,
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -73,7 +74,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.cake_outlined,
                             "Date of Birth",
-                            user.dateOfBirth ?? "",
+                            patient.dateOfBirth ?? "",
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -81,7 +82,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.person_outline,
                             "Gender",
-                            user.gender ?? "",
+                            patient.gender ?? "",
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -89,7 +90,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.bloodtype_outlined,
                             "Blood Group",
-                            user.bloodGroup ?? "",
+                            patient.bloodGroup ?? "",
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -250,9 +251,9 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
     BuildContext context,
     bool isMobile,
     bool isDarkMode,
-    UserModel user,
+    PatientModel patient,
   ) {
-    final userId = user.id.toString();
+    final userId = patient.id.toString();
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -311,10 +312,10 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                       ),
                       child: ClipOval(
                         child:
-                            user.profilePicture != null &&
-                                user.profilePicture!.isNotEmpty
+                            patient.profilePicture != null &&
+                                patient.profilePicture!.isNotEmpty
                             ? Image.network(
-                                user.profilePicture.toString(),
+                                patient.profilePicture.toString(),
                                 width: isMobile ? 100 : 120,
                                 height: isMobile ? 100 : 120,
                                 fit: BoxFit.cover,
@@ -340,7 +341,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
 
                 // Name
                 Text(
-                  user.name,
+                  patient.name,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -672,7 +673,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
       ),
       child: ElevatedButton.icon(
         onPressed: () {
-          _showLogoutDialog(context, isDarkMode, AuthProvider());
+          _showLogoutDialog(context, isDarkMode, AuthenticationProvider());
         },
         icon: const Icon(Icons.logout),
         label: const Text(
@@ -694,7 +695,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
   void _showLogoutDialog(
     BuildContext context,
     bool isDarkMode,
-    AuthProvider authProvider,
+    AuthenticationProvider authProvider,
   ) {
     showDialog(
       context: context,

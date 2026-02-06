@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:med_connect/screens/hospital/hospital_dashboard_screen.dart';
+import 'package:med_connect/screens/hospital/hospital_detail_screen.dart';
 import 'package:med_connect/screens/hospital/hospital_profile_screen.dart';
 import '../screens/hospital/appointment_management_screen.dart';
 import '../theme/theme.dart';
@@ -19,7 +20,7 @@ class HospitalBtmNavBarState extends State<HospitalBtmNavBar> {
   final List<Widget> _pages = [
     const HospitalDashboardScreen(),
     const AppointmentManagementScreen(),
-    Center(child: Text('Profile')),
+    const HospitalDetailsScreen(),
     const HospitalProfileScreen(),
   ];
 

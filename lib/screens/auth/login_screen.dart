@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:med_connect/screens/auth/signup_screen.dart';
-import 'package:med_connect/theme/theme.dart';
-import 'package:med_connect/widgets/btm_nav_bar.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/authentication_provider.dart';
+import '../../theme/theme.dart';
+import 'signup_screen.dart';
+
+enum UserRole { patient, hospital, doctor }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,8 +12,6 @@ class LoginScreen extends StatefulWidget {
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
-
-enum UserRole { patient, hospital }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
@@ -29,6 +28,98 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _handleLogin() async {
+    // Validate form
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+
+    try {
+      final result = await authProvider.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+        role: _selectedRole.name, // Converts enum to string: 'patient', 'hospital', 'doctor'
+      );
+
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      if (result?['success'] == true) {
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Login successful!'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // Navigate based on user role
+        if (authProvider.isPatient) {
+          Navigator.pushReplacementNamed(context, '/patient_home');
+        } else if (authProvider.isHospital) {
+          Navigator.pushReplacementNamed(context, '/hospital_home');
+        } else if (authProvider.isDoctor) {
+          Navigator.pushReplacementNamed(context, '/doctor_home');
+        }
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    result?['message'] ?? 'Login failed',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Error: ${e.toString()}',
+                  style: const TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -36,7 +127,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final isTablet = screenWidth >= 650 && screenWidth < 1100;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -45,13 +135,13 @@ class _LoginScreenState extends State<LoginScreen> {
             end: Alignment.bottomRight,
             colors: isDarkMode
                 ? [
-                    Theme.of(context).scaffoldBackgroundColor,
-                    Theme.of(context).scaffoldBackgroundColor,
-                  ]
+              Theme.of(context).scaffoldBackgroundColor,
+              Theme.of(context).scaffoldBackgroundColor,
+            ]
                 : [
-                    Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                    Colors.white,
-                  ],
+              Theme.of(context).primaryColor.withValues(alpha: 0.1),
+              Colors.white,
+            ],
           ),
         ),
         child: SafeArea(
@@ -63,15 +153,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: Container(
                   constraints: BoxConstraints(
-                    maxWidth: isMobile
-                        ? double.infinity
-                        : (isTablet ? 500 : 450),
+                    maxWidth: isMobile ? double.infinity : (isTablet ? 500 : 450),
                   ),
                   child: Card(
                     elevation: isMobile ? 0 : 8,
-                    color: isDarkMode
-                        ? Theme.of(context).cardColor
-                        : Colors.white,
+                    color: isDarkMode ? Theme.of(context).cardColor : Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -83,6 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            // Logo
                             Icon(
                               Icons.medical_services_rounded,
                               size: isMobile ? 60 : 80,
@@ -94,24 +181,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             // Welcome Text
                             Text(
-                              "Welcome Back 👋",
-                              style: Theme.of(context).textTheme.headlineMedium
+                              "Welcome",
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineMedium
                                   ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: isMobile ? 28 : 32,
-                                  ),
+                                fontWeight: FontWeight.bold,
+                                fontSize: isMobile ? 28 : 32,
+                              ),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
                             Text(
                               "Login to continue your healthcare journey",
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    color: isDarkMode
-                                        ? Colors.grey[400]
-                                        : Colors.grey[600],
-                                    fontSize: isMobile ? 14 : 16,
-                                  ),
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: isDarkMode
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                                fontSize: isMobile ? 14 : 16,
+                              ),
                               textAlign: TextAlign.center,
                             ),
 
@@ -119,13 +207,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             Text(
                               "Login as",
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: isDarkMode
-                                        ? Colors.grey[300]
-                                        : Colors.grey[700],
-                                  ),
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: isDarkMode
+                                    ? Colors.grey[300]
+                                    : Colors.grey[700],
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Row(
@@ -134,28 +221,34 @@ class _LoginScreenState extends State<LoginScreen> {
                                   child: _RoleCard(
                                     icon: Icons.person_rounded,
                                     label: "Patient",
-                                    isSelected:
-                                        _selectedRole == UserRole.patient,
+                                    isSelected: _selectedRole == UserRole.patient,
                                     isDarkMode: isDarkMode,
                                     onTap: () {
-                                      setState(() {
-                                        _selectedRole = UserRole.patient;
-                                      });
+                                      setState(() => _selectedRole = UserRole.patient);
                                     },
                                   ),
                                 ),
-                                const SizedBox(width: 16),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: _RoleCard(
                                     icon: Icons.local_hospital_rounded,
                                     label: "Hospital",
-                                    isSelected:
-                                        _selectedRole == UserRole.hospital,
+                                    isSelected: _selectedRole == UserRole.hospital,
                                     isDarkMode: isDarkMode,
                                     onTap: () {
-                                      setState(() {
-                                        _selectedRole = UserRole.hospital;
-                                      });
+                                      setState(() => _selectedRole = UserRole.hospital);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _RoleCard(
+                                    icon: Icons.medical_services,
+                                    label: "Doctor",
+                                    isSelected: _selectedRole == UserRole.doctor,
+                                    isDarkMode: isDarkMode,
+                                    onTap: () {
+                                      setState(() => _selectedRole = UserRole.doctor);
                                     },
                                   ),
                                 ),
@@ -164,6 +257,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             const SizedBox(height: 32),
 
+                            // Email Field
                             TextFormField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
@@ -236,11 +330,13 @@ class _LoginScreenState extends State<LoginScreen> {
                             Align(
                               alignment: Alignment.centerRight,
                               child: TextButton(
-                                onPressed: () {},
+                                onPressed: () {
+                                  // TODO: Implement forgot password
+                                },
                                 child: Text(
                                   "Forgot Password?",
                                   style: TextStyle(
-                                    color: Theme.of(context).primaryColor,
+                                    color: isDarkMode ? DarkThemeColors.textPrimary : LightThemeColors.textPrimary,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -249,92 +345,33 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             const SizedBox(height: 24),
 
+                            // Login Button
                             SizedBox(
                               height: 56,
                               child: ElevatedButton(
-                                onPressed: (!_isLoading)
-                                    ? () async {
-                                        if (!_formKey.currentState!
-                                            .validate()) {
-                                          return;
-                                        }
-
-                                        setState(() {
-                                          _isLoading = true;
-                                        });
-
-                                        try {
-                                          final result = await authProvider
-                                              .login(
-                                                _emailController.text.trim(),
-                                                _passwordController.text,
-                                                role: _selectedRole.name,
-                                              );
-                                          print("result: $result");
-                                          if (!mounted) return;
-                                          setState(() {
-                                            _isLoading = false;
-                                          });
-
-                                          if (result == null ||
-                                              result['success'] != true) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(
-                                                  result?['message'] ??
-                                                      'Login failed',
-                                                ),
-                                                backgroundColor: Colors.red,
-                                              ),
-                                            );
-                                            return;
-                                          }
-
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  PatientShell(),
-                                            ),
-                                          );
-                                        } catch (e) {
-                                          if (!mounted) return;
-                                          print("Login error: $e");
-                                          setState(() {
-                                            _isLoading = false;
-                                          });
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                "Error: ${e.toString()}",
-                                              ),
-                                              backgroundColor: Colors.red,
-                                            ),
-                                          );
-                                        } finally {
-                                          if (mounted) {
-                                            setState(() {
-                                              _isLoading = false;
-                                            });
-                                          }
-                                        }
-                                      }
-                                    : null,
+                                onPressed: _isLoading ? null : _handleLogin,
                                 style: ElevatedButton.styleFrom(
+                                  backgroundColor: isDarkMode ? DarkThemeColors.buttonPrimary : LightThemeColors.buttonPrimary,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   elevation: 2,
                                 ),
-                                child: Text(
+                                child: _isLoading
+                                    ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                                    : Text(
                                   "Login",
                                   style: TextStyle(
                                     fontSize: isMobile ? 16 : 18,
                                     fontWeight: FontWeight.bold,
+                                    color: isDarkMode ? Colors.black : Colors.black,
                                   ),
                                 ),
                               ),
@@ -342,6 +379,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                             const SizedBox(height: 24),
 
+                            // Divider
                             Row(
                               children: [
                                 Expanded(
@@ -386,7 +424,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       icon: Icons.g_mobiledata_rounded,
                                       label: "Google",
                                       isDarkMode: isDarkMode,
-                                      onPressed: () {},
+                                      onPressed: () {
+                                        // TODO: Implement Google login
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 16),
@@ -395,7 +435,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       icon: Icons.apple_rounded,
                                       label: "Apple",
                                       isDarkMode: isDarkMode,
-                                      onPressed: () {},
+                                      onPressed: () {
+                                        // TODO: Implement Apple login
+                                      },
                                     ),
                                   ),
                                 ],
@@ -405,14 +447,18 @@ class _LoginScreenState extends State<LoginScreen> {
                                 icon: Icons.g_mobiledata_rounded,
                                 label: "Continue with Google",
                                 isDarkMode: isDarkMode,
-                                onPressed: () {},
+                                onPressed: () {
+                                  // TODO: Implement Google login
+                                },
                               ),
                               const SizedBox(height: 12),
                               _SocialButton(
                                 icon: Icons.apple_rounded,
                                 label: "Continue with Apple",
                                 isDarkMode: isDarkMode,
-                                onPressed: () {},
+                                onPressed: () {
+                                  // TODO: Implement Apple login
+                                },
                               ),
                             ],
 
@@ -426,14 +472,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                   "Don't have an account? ",
                                   style: TextStyle(
                                     color: isDarkMode
-                                        ? Colors.grey[400]
-                                        : Colors.grey[700],
+                                        ? DarkThemeColors.textPrimary
+                                        : LightThemeColors.textPrimary,
                                     fontSize: isMobile ? 14 : 16,
+                                    fontWeight: FontWeight.w600
                                   ),
                                 ),
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.push(
+                                const SizedBox(width: 5,),
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) => const SignupScreen(),
@@ -443,6 +491,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   child: Text(
                                     "Sign Up",
                                     style: TextStyle(
+                                      color: isDarkMode ? DarkThemeColors.buttonPrimary : LightThemeColors.buttonPrimary,
                                       fontWeight: FontWeight.bold,
                                       fontSize: isMobile ? 14 : 16,
                                     ),
@@ -490,11 +539,11 @@ class _RoleCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? (isDarkMode
-                    ? DarkThemeColors.grey
-                    : Theme.of(context).primaryColor)
+              ? DarkThemeColors.grey
+              : Theme.of(context).primaryColor)
               : (isDarkMode
-                    ? AppTheme.darkTheme.primaryColor
-                    : Colors.grey[100]),
+              ? AppTheme.darkTheme.primaryColor
+              : Colors.grey[100]),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:med_connect/screens/hospital/hospital_settings_screen.dart';
 
 class HospitalProfileScreen extends StatefulWidget {
   const HospitalProfileScreen({super.key});
@@ -80,7 +81,10 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                       const SizedBox(height: 24),
 
                       // Accreditations
-                      _buildSectionTitle(context, "Accreditations & Certifications"),
+                      _buildSectionTitle(
+                        context,
+                        "Accreditations & Certifications",
+                      ),
                       const SizedBox(height: 12),
                       _buildAccreditations(context, isDarkMode),
                       const SizedBox(height: 24),
@@ -140,13 +144,14 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
         ),
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.share),
-          onPressed: () {},
-        ),
+        IconButton(icon: const Icon(Icons.share), onPressed: () {}),
         IconButton(
           icon: const Icon(Icons.settings),
           onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => HospitalSettingsScreen()),
+            );
           },
         ),
       ],
@@ -154,7 +159,10 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   }
 
   Widget _buildHospitalInfoHeader(
-      BuildContext context, bool isMobile, bool isDarkMode) {
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+  ) {
     return Container(
       transform: Matrix4.translationValues(0, -40, 0),
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
@@ -190,9 +198,9 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
           // Hospital Name
           Text(
             "City General Hospital",
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
@@ -255,7 +263,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
               Row(
                 children: List.generate(
                   5,
-                      (index) => Icon(
+                  (index) => Icon(
                     index < 4 ? Icons.star : Icons.star_half,
                     color: Colors.amber,
                     size: 20,
@@ -279,7 +287,10 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   }
 
   Widget _buildQuickStats(
-      BuildContext context, bool isMobile, bool isDarkMode) {
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -330,13 +341,13 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   }
 
   Widget _buildStatCard(
-      BuildContext context,
-      String value,
-      String label,
-      IconData icon,
-      Color color,
-      bool isDarkMode,
-      ) {
+    BuildContext context,
+    String value,
+    String label,
+    IconData icon,
+    Color color,
+    bool isDarkMode,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -375,9 +386,9 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   Widget _buildSectionTitle(BuildContext context, String title) {
     return Text(
       title,
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.bold,
-      ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
     );
   }
 
@@ -423,9 +434,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
@@ -491,13 +500,13 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   }
 
   Widget _buildContactTile(
-      BuildContext context,
-      IconData icon,
-      String label,
-      String value,
-      Color color,
-      bool isDarkMode,
-      ) {
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+    bool isDarkMode,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -525,9 +534,9 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -568,7 +577,9 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
           return Column(
             children: [
               if (index > 0)
-                Divider(color: isDarkMode ? Colors.grey[700] : Colors.grey[200]),
+                Divider(
+                  color: isDarkMode ? Colors.grey[700] : Colors.grey[200],
+                ),
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
@@ -591,7 +602,9 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                       child: Text(
                         hour["day"].toString(),
                         style: TextStyle(
-                          fontWeight: isEmergency ? FontWeight.bold : FontWeight.w600,
+                          fontWeight: isEmergency
+                              ? FontWeight.bold
+                              : FontWeight.w600,
                           color: isEmergency ? Colors.red : null,
                         ),
                       ),
@@ -601,8 +614,12 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                       style: TextStyle(
                         color: isEmergency
                             ? Colors.red
-                            : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
-                        fontWeight: isEmergency ? FontWeight.bold : FontWeight.w500,
+                            : (isDarkMode
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600]),
+                        fontWeight: isEmergency
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                       ),
                     ),
                   ],
@@ -616,7 +633,10 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   }
 
   Widget _buildServicesFacilities(
-      BuildContext context, bool isMobile, bool isDarkMode) {
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+  ) {
     final services = [
       {"icon": Icons.emergency, "label": "Emergency Care", "color": Colors.red},
       {"icon": Icons.healing, "label": "ICU", "color": Colors.orange},
@@ -676,11 +696,18 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   }
 
   Widget _buildDepartments(
-      BuildContext context, bool isMobile, bool isDarkMode) {
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+  ) {
     final departments = [
       {"name": "Cardiology", "icon": Icons.favorite, "color": Colors.red},
       {"name": "Neurology", "icon": Icons.psychology, "color": Colors.purple},
-      {"name": "Orthopedics", "icon": Icons.accessibility_new, "color": Colors.blue},
+      {
+        "name": "Orthopedics",
+        "icon": Icons.accessibility_new,
+        "color": Colors.blue,
+      },
       {"name": "Pediatrics", "icon": Icons.child_care, "color": Colors.pink},
       {"name": "Oncology", "icon": Icons.healing, "color": Colors.orange},
       {"name": "Radiology", "icon": Icons.camera_alt, "color": Colors.cyan},
@@ -834,7 +861,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                           Row(
                             children: List.generate(
                               5,
-                                  (index) => Icon(
+                              (index) => Icon(
                                 index < 4 ? Icons.star : Icons.star_half,
                                 color: Colors.amber,
                                 size: 16,
@@ -846,7 +873,9 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                             "1,234 reviews",
                             style: TextStyle(
                               fontSize: 12,
-                              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                              color: isDarkMode
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600],
                             ),
                           ),
                         ],
@@ -951,9 +980,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                 ],
               ),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: Colors.blue.withValues(alpha: 0.3),
-              ),
+              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -977,7 +1004,10 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   }
 
   Widget _buildManagementActions(
-      BuildContext context, bool isMobile, bool isDarkMode) {
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+  ) {
     return Column(
       children: [
         SizedBox(
@@ -990,10 +1020,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
             icon: const Icon(Icons.edit),
             label: const Text(
               "Edit Hospital Profile",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).primaryColor,

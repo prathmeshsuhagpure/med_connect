@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/authentication_provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -18,35 +18,27 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
+    await authProvider.loadStoredAuth();
 
     await Future.delayed(const Duration(seconds: 2));
 
-    try {
-      final isLoggedIn = await authProvider.tryAutoLogin();
-      if (!mounted) return;
+    if (!mounted) return;
 
-      if (isLoggedIn && authProvider.user != null) {
-        print("in if Block");
-        final user = authProvider.user!;
-
-        if (user.role.toLowerCase() == 'hospital') {
-          Navigator.pushReplacementNamed(context, '/hospital_home');
-        } else {
-          Navigator.pushReplacementNamed(context, '/patient_home');
-        }
-      } else {
-        print("in else block");
-        await authProvider.forceLogout();
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, '/login');
+    if (authProvider.isAuthenticated) {
+      // Navigate based on role
+      if (authProvider.isPatient) {
+        Navigator.pushReplacementNamed(context, '/patient_home');
+      } else if (authProvider.isHospital) {
+        Navigator.pushReplacementNamed(context, '/hospital_home');
+      } else if (authProvider.isDoctor) {
+        Navigator.pushReplacementNamed(context, '/doctor_home');
       }
-    } catch (e) {
-      print("in catch block");
-      await authProvider.forceLogout();
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
-      }
+    } else {
+      Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
