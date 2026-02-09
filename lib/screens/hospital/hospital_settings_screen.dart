@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../providers/authentication_provider.dart';
+
 class HospitalSettingsScreen extends StatefulWidget {
   const HospitalSettingsScreen({super.key});
 
@@ -16,6 +18,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
   bool _fingerprintAuth = true;
   bool _autoBackup = true;
   bool _darkMode = false;
+  bool isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -95,9 +98,9 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
   Widget _buildSectionTitle(BuildContext context, String title) {
     return Text(
       title,
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.bold,
-      ),
+      style: Theme.of(
+        context,
+      ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
     );
   }
 
@@ -197,7 +200,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             Colors.blue,
             isDarkMode,
             _emailNotifications,
-                (value) {
+            (value) {
               setState(() {
                 _emailNotifications = value;
               });
@@ -212,7 +215,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             Colors.green,
             isDarkMode,
             _smsNotifications,
-                (value) {
+            (value) {
               setState(() {
                 _smsNotifications = value;
               });
@@ -227,7 +230,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             Colors.orange,
             isDarkMode,
             _appointmentReminders,
-                (value) {
+            (value) {
               setState(() {
                 _appointmentReminders = value;
               });
@@ -242,7 +245,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             Colors.purple,
             isDarkMode,
             _marketingEmails,
-                (value) {
+            (value) {
               setState(() {
                 _marketingEmails = value;
               });
@@ -279,7 +282,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             Colors.indigo,
             isDarkMode,
             _darkMode,
-                (value) {
+            (value) {
               setState(() {
                 _darkMode = value;
               });
@@ -353,7 +356,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             Colors.red,
             isDarkMode,
             _twoFactorAuth,
-                (value) {
+            (value) {
               setState(() {
                 _twoFactorAuth = value;
               });
@@ -371,7 +374,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             Colors.blue,
             isDarkMode,
             _fingerprintAuth,
-                (value) {
+            (value) {
               setState(() {
                 _fingerprintAuth = value;
               });
@@ -526,7 +529,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             Colors.blue,
             isDarkMode,
             _autoBackup,
-                (value) {
+            (value) {
               setState(() {
                 _autoBackup = value;
               });
@@ -672,10 +675,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[850] : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.red.withValues(alpha: 0.3),
-          width: 2,
-        ),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 2),
       ),
       child: Column(
         children: [
@@ -711,7 +711,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             Colors.red,
             isDarkMode,
             onTap: () {
-              _showLogoutDialog(context, isDarkMode);
+              _showLogoutDialog(context, isDarkMode, AuthenticationProvider());
             },
           ),
         ],
@@ -720,14 +720,14 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
   }
 
   Widget _buildSettingTile(
-      BuildContext context,
-      IconData icon,
-      String title,
-      String subtitle,
-      Color color,
-      bool isDarkMode, {
-        VoidCallback? onTap,
-      }) {
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+    Color color,
+    bool isDarkMode, {
+    VoidCallback? onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -776,15 +776,15 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
   }
 
   Widget _buildSwitchTile(
-      BuildContext context,
-      IconData icon,
-      String title,
-      String subtitle,
-      Color color,
-      bool isDarkMode,
-      bool value,
-      ValueChanged<bool> onChanged,
-      ) {
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+    Color color,
+    bool isDarkMode,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -804,9 +804,9 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
               children: [
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -819,11 +819,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
               ],
             ),
           ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: color,
-          ),
+          Switch(value: value, onChanged: onChanged, activeThumbColor: color),
         ],
       ),
     );
@@ -860,9 +856,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
               const Text("Change Password"),
             ],
           ),
-          content: const Text(
-            "This will open the change password form.",
-          ),
+          content: const Text("This will open the change password form."),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -873,9 +867,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
                 Navigator.pop(context);
                 // TODO: Navigate to change password form
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               child: const Text("Continue"),
             ),
           ],
@@ -898,14 +890,16 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: languages
-                .map((lang) => RadioListTile(
-              title: Text(lang),
-              value: lang,
-              groupValue: "English",
-              onChanged: (value) {
-                Navigator.pop(context);
-              },
-            ))
+                .map(
+                  (lang) => RadioListTile(
+                    title: Text(lang),
+                    value: lang,
+                    groupValue: "English",
+                    onChanged: (value) {
+                      Navigator.pop(context);
+                    },
+                  ),
+                )
                 .toList(),
           ),
         );
@@ -954,9 +948,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
                 Navigator.pop(context);
                 // TODO: Setup 2FA
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text("Setup"),
             ),
           ],
@@ -967,8 +959,16 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
 
   void _showActiveSessionsDialog(BuildContext context, bool isDarkMode) {
     final sessions = [
-      {"device": "iPhone 13 Pro", "location": "New York, USA", "time": "Active now"},
-      {"device": "MacBook Pro", "location": "New York, USA", "time": "2 hours ago"},
+      {
+        "device": "iPhone 13 Pro",
+        "location": "New York, USA",
+        "time": "Active now",
+      },
+      {
+        "device": "MacBook Pro",
+        "location": "New York, USA",
+        "time": "2 hours ago",
+      },
       {"device": "iPad Air", "location": "New York, USA", "time": "Yesterday"},
     ];
 
@@ -1056,9 +1056,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
                   ),
                 );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
               child: const Text("Backup"),
             ),
           ],
@@ -1103,9 +1101,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
                 Navigator.pop(context);
                 // TODO: Initiate restore
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               child: const Text("Restore"),
             ),
           ],
@@ -1131,15 +1127,17 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             children: [
               const Text("Select export format:"),
               const SizedBox(height: 16),
-              ...formats.map((format) => RadioListTile(
-                title: Text(format),
-                value: format,
-                groupValue: "CSV",
-                onChanged: (value) {
-                  Navigator.pop(context);
-                  // TODO: Export in selected format
-                },
-              )),
+              ...formats.map(
+                (format) => RadioListTile(
+                  title: Text(format),
+                  value: format,
+                  groupValue: "CSV",
+                  onChanged: (value) {
+                    Navigator.pop(context);
+                    // TODO: Export in selected format
+                  },
+                ),
+              ),
             ],
           ),
           actions: [
@@ -1189,9 +1187,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
                 Navigator.pop(context);
                 // TODO: Delete all data
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text("Delete Everything"),
             ),
           ],
@@ -1236,9 +1232,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
                 Navigator.pop(context);
                 // TODO: Deactivate account
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
               child: const Text("Deactivate"),
             ),
           ],
@@ -1247,7 +1241,11 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
     );
   }
 
-  void _showLogoutDialog(BuildContext context, bool isDarkMode) {
+  void _showLogoutDialog(
+    BuildContext context,
+    bool isDarkMode,
+    AuthenticationProvider authProvider,
+  ) {
     showDialog(
       context: context,
       builder: (context) {
@@ -1279,13 +1277,23 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
               child: const Text("Cancel"),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Logout
+              onPressed: () async {
+                setState(() {
+                  isLoading = true;
+                });
+                try {
+                  await authProvider.logout();
+                  setState(() {
+                    isLoading = false;
+                  });
+                  Navigator.pushReplacementNamed(context, '/login');
+                } catch (e) {
+                  setState(() {
+                    isLoading = false;
+                  });
+                }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text("Logout"),
             ),
           ],
@@ -1320,10 +1328,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
             children: [
               const Text(
                 "MedConnect",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
@@ -1333,9 +1338,7 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                "Hospital Appointment Booking & Management System",
-              ),
+              const Text("Hospital Appointment Booking & Management System"),
               const SizedBox(height: 16),
               const Text(
                 "© 2026 MedConnect. All rights reserved.",

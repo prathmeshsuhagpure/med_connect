@@ -1,4 +1,8 @@
+import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:med_connect/theme/theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/authentication_provider.dart';
 
@@ -28,10 +32,15 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
   final _conditionsController = TextEditingController();
 
   // Dropdown values
-  String _selectedGender = "Male";
-  String _selectedBloodGroup = "O+";
+  String? _selectedGender;
+  String? _selectedBloodGroup;
 
   bool _isSaving = false;
+  bool _isUploadingImage = false;
+  bool _cancelUpload = false;
+
+  File? _profileImageFile;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -40,8 +49,23 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
   }
 
   void _loadUserData() {
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
     final patient = authProvider.patient;
+
+    const genderOptions = ['Male', 'Female', 'Other'];
+    const bloodGroupOptions = [
+      'A+',
+      'A-',
+      'B+',
+      'B-',
+      'AB+',
+      'AB-',
+      'O+',
+      'O-',
+    ];
 
     if (patient != null) {
       _fullNameController.text = patient.name;
@@ -56,9 +80,49 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
       _allergiesController.text = patient.allergies ?? '';
       _medicationsController.text = patient.medications ?? '';
       _conditionsController.text = patient.conditions ?? '';
-      _selectedGender = patient.gender!;
-      _selectedBloodGroup = patient.bloodGroup!;
+      _selectedGender = (genderOptions.contains(patient.gender)
+          ? patient.gender
+          : null);
+      _selectedBloodGroup = (bloodGroupOptions.contains(patient.bloodGroup)
+          ? patient.bloodGroup
+          : null);
     }
+  }
+
+  Future<void> _pickFromCamera() async {
+    final pickedFile = await _imagePicker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 70,
+    );
+
+    if (pickedFile != null) {
+      setState(() {
+        _profileImageFile = File(pickedFile.path);
+      });
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _profileImageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      throw Exception('Failed to select image: $e');
+    }
+  }
+
+  void _removeProfilePhoto() {
+    setState(() {
+      _profileImageFile = null;
+    });
   }
 
   @override
@@ -84,249 +148,321 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
     final isMobile = screenWidth < 650;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          "Edit Profile",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: false,
-        elevation: 0,
-        actions: [
-          TextButton(
-            onPressed: () {
-              if (_formKey.currentState!.validate()) {
-                _saveProfile();
-              }
-            },
-            child: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Text(
-                    "Save",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              "Edit Profile",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            centerTitle: false,
+            elevation: 0,
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _buildProfilePictureSection(context, isDarkMode),
-              const SizedBox(height: 24),
+          body: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  _buildProfilePictureSection(context, isDarkMode),
+                  const SizedBox(height: 24),
 
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildSectionTitle(context, "Personal Information"),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _fullNameController,
-                      label: "Full Name",
-                      icon: Icons.person_outline,
-                      isDarkMode: isDarkMode,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your full name';
-                        }
-                        return null;
-                      },
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 16 : 24,
                     ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _emailController,
-                      label: "Email Address",
-                      icon: Icons.email_outlined,
-                      keyboardType: TextInputType.emailAddress,
-                      isDarkMode: isDarkMode,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your email';
-                        }
-                        if (!value.contains('@')) {
-                          return 'Please enter a valid email';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _phoneController,
-                      label: "Phone Number",
-                      icon: Icons.phone_outlined,
-                      keyboardType: TextInputType.phone,
-                      isDarkMode: isDarkMode,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your phone number';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDateField(
-                      controller: _dobController,
-                      label: "Date of Birth",
-                      icon: Icons.cake_outlined,
-                      isDarkMode: isDarkMode,
-                      context: context,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildGenderDropdown(isDarkMode),
-                    const SizedBox(height: 16),
-                    _buildBloodGroupDropdown(isDarkMode),
-                    const SizedBox(height: 32),
-
-                    // Physical Information
-                    _buildSectionTitle(context, "Physical Information"),
-                    const SizedBox(height: 16),
-                    Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _heightController,
-                            label: "Height (cm)",
-                            icon: Icons.height,
-                            keyboardType: TextInputType.number,
-                            isDarkMode: isDarkMode,
+                        _buildSectionTitle(context, "Personal Information"),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _fullNameController,
+                          label: "Full Name",
+                          icon: Icons.person_outline,
+                          isDarkMode: isDarkMode,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your full name';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _emailController,
+                          label: "Email Address",
+                          icon: Icons.email_outlined,
+                          keyboardType: TextInputType.emailAddress,
+                          isDarkMode: isDarkMode,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your email';
+                            }
+                            if (!value.contains('@')) {
+                              return 'Please enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _phoneController,
+                          label: "Phone Number",
+                          icon: Icons.phone_outlined,
+                          keyboardType: TextInputType.phone,
+                          isDarkMode: isDarkMode,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your phone number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildDateField(
+                          controller: _dobController,
+                          label: "Date of Birth",
+                          icon: Icons.cake_outlined,
+                          isDarkMode: isDarkMode,
+                          context: context,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildGenderDropdown(isDarkMode),
+                        const SizedBox(height: 16),
+                        _buildBloodGroupDropdown(isDarkMode),
+                        const SizedBox(height: 32),
+
+                        // Physical Information
+                        _buildSectionTitle(context, "Physical Information"),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                controller: _heightController,
+                                label: "Height (cm)",
+                                icon: Icons.height,
+                                keyboardType: TextInputType.number,
+                                isDarkMode: isDarkMode,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildTextField(
+                                controller: _weightController,
+                                label: "Weight (kg)",
+                                icon: Icons.monitor_weight_outlined,
+                                keyboardType: TextInputType.number,
+                                isDarkMode: isDarkMode,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Contact Information
+                        _buildSectionTitle(context, "Contact Information"),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _addressController,
+                          label: "Address",
+                          icon: Icons.location_on_outlined,
+                          maxLines: 3,
+                          isDarkMode: isDarkMode,
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Emergency Contact
+                        _buildSectionTitle(context, "Emergency Contact"),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _emergencyNameController,
+                          label: "Emergency Contact Name",
+                          icon: Icons.person_outline,
+                          isDarkMode: isDarkMode,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _emergencyContactController,
+                          label: "Emergency Contact Number",
+                          icon: Icons.phone_outlined,
+                          keyboardType: TextInputType.phone,
+                          isDarkMode: isDarkMode,
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Medical Information
+                        _buildSectionTitle(context, "Medical Information"),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _allergiesController,
+                          label: "Allergies",
+                          icon: Icons.warning_amber_outlined,
+                          maxLines: 2,
+                          isDarkMode: isDarkMode,
+                          hintText: "E.g., Peanuts, Penicillin",
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _medicationsController,
+                          label: "Current Medications",
+                          icon: Icons.medication_outlined,
+                          maxLines: 2,
+                          isDarkMode: isDarkMode,
+                          hintText: "E.g., Aspirin 100mg daily",
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          controller: _conditionsController,
+                          label: "Medical Conditions",
+                          icon: Icons.local_hospital_outlined,
+                          maxLines: 2,
+                          isDarkMode: isDarkMode,
+                          hintText: "E.g., Diabetes, Hypertension",
+                        ),
+                        const SizedBox(height: 32),
+
+                        // Save Button
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton(
+                            onPressed: _isSaving
+                                ? null
+                                : () {
+                                    if (_formKey.currentState!.validate()) {
+                                      _saveProfile();
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isDarkMode
+                                  ? DarkThemeColors.buttonPrimary
+                                  : LightThemeColors.buttonPrimary,
+                              disabledBackgroundColor: isDarkMode
+                                  ? DarkThemeColors.textDisabled
+                                  : LightThemeColors.textDisabled,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: _isSaving
+                                ? const CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    "Save Changes",
+                                    style: TextStyle(
+                                      color: isDarkMode
+                                          ? Colors.black
+                                          : Colors.black,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildTextField(
-                            controller: _weightController,
-                            label: "Weight (kg)",
-                            icon: Icons.monitor_weight_outlined,
-                            keyboardType: TextInputType.number,
-                            isDarkMode: isDarkMode,
-                          ),
-                        ),
+                        const SizedBox(height: 40),
                       ],
                     ),
-                    const SizedBox(height: 32),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (_isUploadingImage || _isSaving) _buildLoadingOverlay(isDarkMode),
+      ],
+    );
+  }
 
-                    // Contact Information
-                    _buildSectionTitle(context, "Contact Information"),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _addressController,
-                      label: "Address",
-                      icon: Icons.location_on_outlined,
-                      maxLines: 3,
-                      isDarkMode: isDarkMode,
-                    ),
-                    const SizedBox(height: 32),
+  Widget _buildLoadingOverlay(bool isDarkMode) {
+    return Positioned.fill(
+      child: AbsorbPointer(
+        absorbing: true,
+        child: Stack(
+          children: [
+            // 🔹 Blur background
+            BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.2),
+              ),
+            ),
 
-                    // Emergency Contact
-                    _buildSectionTitle(context, "Emergency Contact"),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _emergencyNameController,
-                      label: "Emergency Contact Name",
-                      icon: Icons.person_outline,
-                      isDarkMode: isDarkMode,
+            // 🔹 Dialog
+            Center(
+              child: Container(
+                width: 280,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.grey[900] : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 20,
                     ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _emergencyContactController,
-                      label: "Emergency Contact Number",
-                      icon: Icons.phone_outlined,
-                      keyboardType: TextInputType.phone,
-                      isDarkMode: isDarkMode,
-                    ),
-                    const SizedBox(height: 32),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 20),
 
-                    // Medical Information
-                    _buildSectionTitle(context, "Medical Information"),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _allergiesController,
-                      label: "Allergies",
-                      icon: Icons.warning_amber_outlined,
-                      maxLines: 2,
-                      isDarkMode: isDarkMode,
-                      hintText: "E.g., Peanuts, Penicillin",
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _medicationsController,
-                      label: "Current Medications",
-                      icon: Icons.medication_outlined,
-                      maxLines: 2,
-                      isDarkMode: isDarkMode,
-                      hintText: "E.g., Aspirin 100mg daily",
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTextField(
-                      controller: _conditionsController,
-                      label: "Medical Conditions",
-                      icon: Icons.local_hospital_outlined,
-                      maxLines: 2,
-                      isDarkMode: isDarkMode,
-                      hintText: "E.g., Diabetes, Hypertension",
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Save Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: ElevatedButton(
-                        onPressed: _isSaving
-                            ? null
-                            : () {
-                                if (_formKey.currentState!.validate()) {
-                                  _saveProfile();
-                                }
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).primaryColor,
-                          disabledBackgroundColor: Colors.grey[400],
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: _isSaving
-                            ? const CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              )
-                            : Text(
-                                "Save Changes",
-                                style: TextStyle(
-                                  color: isDarkMode
-                                      ? Colors.cyan
-                                      : Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                    Text(
+                      _isUploadingImage
+                          ? "Uploading profile picture…"
+                          : "Saving changes…",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: isDarkMode
+                            ? DarkThemeColors.textPrimary
+                            : LightThemeColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 40),
+
+                    const SizedBox(height: 20),
+
+                    if (_isUploadingImage)
+                      TextButton(
+                        onPressed: () {
+                          setState(() {
+                            _cancelUpload = true;
+                            _isUploadingImage = false;
+                          });
+                        },
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.red,
+                        ),
+                        child: const Text(
+                          "Cancel Upload",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+
   Widget _buildProfilePictureSection(BuildContext context, bool isDarkMode) {
+    final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
+    final patient = authProvider.patient;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -334,7 +470,7 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
         color: isDarkMode ? Colors.grey[850] : Colors.grey[50],
         border: Border(
           bottom: BorderSide(
-            color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
+            color: isDarkMode ? Colors.grey[700]! : Colors.grey[400]!,
           ),
         ),
       ),
@@ -353,10 +489,27 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
                     width: 3,
                   ),
                 ),
-                child: Icon(
-                  Icons.person,
-                  size: 60,
-                  color: Theme.of(context).primaryColor,
+                child: ClipOval(
+                  child: _profileImageFile != null
+                      ? Image.file(
+                          _profileImageFile!,
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                        )
+                      : (patient?.profilePicture != null &&
+                            patient!.profilePicture!.isNotEmpty)
+                      ? Image.network(
+                          patient.profilePicture!,
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.cover,
+                        )
+                      : Icon(
+                          Icons.person,
+                          size: 60,
+                          color: Theme.of(context).primaryColor,
+                        ),
                 ),
               ),
               Positioned(
@@ -391,10 +544,15 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            "Change Profile Picture",
+            patient!.profilePicture != null &&
+                    patient.profilePicture!.isNotEmpty
+                ? 'Change Profile Picture'
+                : "Add profile picture",
             style: TextStyle(
               fontSize: 14,
-              color: Theme.of(context).primaryColor,
+              color: isDarkMode
+                  ? DarkThemeColors.textPrimary
+                  : LightThemeColors.textPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -492,6 +650,7 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
   Widget _buildGenderDropdown(bool isDarkMode) {
     return DropdownButtonFormField<String>(
       initialValue: _selectedGender,
+      hint: const Text("Select Gender"),
       decoration: InputDecoration(
         labelText: "Gender",
         prefixIcon: const Icon(Icons.person_outline),
@@ -517,6 +676,7 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
   Widget _buildBloodGroupDropdown(bool isDarkMode) {
     return DropdownButtonFormField<String>(
       initialValue: _selectedBloodGroup,
+      hint: const Text("Select Blood Group"),
       decoration: InputDecoration(
         labelText: "Blood Group",
         prefixIcon: const Icon(Icons.bloodtype_outlined),
@@ -567,9 +727,12 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
                 const SizedBox(height: 24),
                 Text(
                   "Change Profile Picture",
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode
+                        ? DarkThemeColors.textPrimary
+                        : LightThemeColors.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 _buildImageOption(
@@ -579,7 +742,7 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
                   isDarkMode,
                   () {
                     Navigator.pop(context);
-                    // TODO: Implement camera
+                    _pickFromCamera();
                   },
                 ),
                 const SizedBox(height: 12),
@@ -589,8 +752,8 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
                   "Choose from Gallery",
                   isDarkMode,
                   () {
+                    _pickFromGallery();
                     Navigator.pop(context);
-                    // TODO: Implement gallery picker
                   },
                 ),
                 const SizedBox(height: 12),
@@ -601,7 +764,7 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
                   isDarkMode,
                   () {
                     Navigator.pop(context);
-                    // TODO: Implement remove photo
+                    _removeProfilePhoto();
                   },
                   isDelete: true,
                 ),
@@ -671,12 +834,55 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
       return;
     }
 
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
 
     setState(() => _isSaving = true);
 
     try {
-      final success = await authProvider.updateProfile({
+      String? uploadedImageUrl;
+      if (_profileImageFile != null) {
+        _cancelUpload = false;
+        setState(() => _isUploadingImage = true);
+
+        try {
+          final result = await authProvider.uploadProfileImage(
+            _profileImageFile!,
+          );
+
+          // ❗ User cancelled upload → stop everything
+          if (_cancelUpload) {
+            setState(() {
+              _isUploadingImage = false;
+              _isSaving = false;
+            });
+            return;
+          }
+
+          uploadedImageUrl = result;
+        } catch (e) {
+          if (!_cancelUpload) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Failed to upload profile picture"),
+              ),
+            );
+          }
+
+          setState(() {
+            _isUploadingImage = false;
+            _isSaving = false;
+          });
+          return;
+        } finally {
+          if (mounted) {
+            setState(() => _isUploadingImage = false);
+          }
+        }
+      }
+      final Map<String, dynamic> updateData = {
         'name': _fullNameController.text.trim(),
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
@@ -691,7 +897,12 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
         'conditions': _conditionsController.text.trim(),
         'gender': _selectedGender,
         'bloodGroup': _selectedBloodGroup,
-      });
+      };
+      if (uploadedImageUrl != null) {
+        updateData['profilePicture'] = uploadedImageUrl;
+      }
+      final success = await authProvider.updateProfile(updateData);
+      await authProvider.fetchUserProfile();
 
       if (!mounted) return;
 
@@ -719,17 +930,9 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
           ),
         );
 
-        // Navigate back or replace with profile screen
         Future.delayed(const Duration(milliseconds: 500), () {
           if (mounted) {
-            // Option 1: Go back to previous screen
             Navigator.pop(context);
-
-            // Option 2: Replace current screen with profile screen
-            // Navigator.pushReplacement(
-            //   context,
-            //   MaterialPageRoute(builder: (context) => const PatientProfileScreen()),
-            // );
           }
         });
       } else {
@@ -787,134 +990,6 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
       );
     }
   }
-
-  /*Future<void> _saveProfile() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!mounted) return;
-
-    setState(() => _isSaving = true);
-
-    try {
-      final success = await authProvider.updateProfile({
-        'name': _fullNameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'dob': _dobController.text.trim(),
-        'height': _heightController.text.trim(),
-        'weight': _weightController.text.trim(),
-        'address': _addressController.text.trim(),
-        'emergencyName': _emergencyNameController.text.trim(),
-        'emergencyContact': _emergencyContactController.text.trim(),
-        'allergies': _allergiesController.text.trim(),
-        'medications': _medicationsController.text.trim(),
-        'conditions': _conditionsController.text.trim(),
-        'gender': _selectedGender,
-        'bloodGroup': _selectedBloodGroup,
-      });
-
-      if (!mounted) return;
-
-      setState(() => _isSaving = false);
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text(
-                  "Profile updated successfully!",
-                  style: TextStyle(color: Colors.white),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => PatientProfileScreen()),
-            );
-          }
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(authProvider.error ?? 'Profile update failed'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() => _isSaving = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
-    }
-  }*/
-
-  /*Future<void> _saveProfile() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (!mounted) return;
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      await authProvider.updateProfile(
-        _fullNameController.text,
-        _emailController.text,
-        _phoneController.text,
-        _dobController.text,
-        _heightController.text,
-        _weightController.text,
-        _addressController.text,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _isSaving = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Text("Profile updated successfully!"),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) Navigator.pop(context);
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() => _isSaving = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
-    }
-  }*/
 
   String _getMonth(int month) {
     const months = [

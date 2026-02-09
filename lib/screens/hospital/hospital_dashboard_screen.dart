@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:med_connect/screens/doctor/add_doctor_screen.dart';
+import 'package:med_connect/screens/doctor/doctor_management_screen.dart';
+import 'package:med_connect/screens/hospital/appointment_management_screen.dart';
+import 'package:med_connect/screens/patient/recent_patient_screen.dart';
+import 'package:med_connect/theme/theme.dart';
+import 'package:provider/provider.dart';
+import '../../providers/authentication_provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../notification/notification_screen.dart';
+import '../patient/add_patient_screen.dart';
 
 class HospitalDashboardScreen extends StatefulWidget {
   const HospitalDashboardScreen({super.key});
 
   @override
   State<HospitalDashboardScreen> createState() =>
-      _HospitalDashboardScreenState();
+      HospitalDashboardScreenState();
 }
 
-class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
+class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
   String _selectedPeriod = "Today";
 
   @override
@@ -38,7 +48,7 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 const SizedBox(height: 24),
 
                 // Quick Actions
-                _buildQuickActions(context, isMobile, isDarkMode),
+                _buildQuickActions(context, isDarkMode),
                 const SizedBox(height: 32),
 
                 // Today's Appointments
@@ -47,7 +57,14 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                   "Today's Appointments",
                   "View All",
                   isDarkMode,
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AppointmentManagementScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildTodaysAppointments(context, isMobile, isDarkMode),
@@ -59,7 +76,14 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                   "Recent Patients",
                   "View All",
                   isDarkMode,
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => RecentPatientsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildRecentPatients(context, isMobile, isDarkMode),
@@ -71,7 +95,14 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                   "Doctors Availability",
                   "Manage",
                   isDarkMode,
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DoctorManagementScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildDoctorsStatus(context, isMobile, isDarkMode),
@@ -97,13 +128,21 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
   }
 
   Widget _buildHeader(BuildContext context, bool isMobile, bool isDarkMode) {
+    final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
+    final hospital = authProvider.hospital;
+
     return Row(
       children: [
         Container(
           width: isMobile ? 50 : 60,
           height: isMobile ? 50 : 60,
           decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+            color: isDarkMode
+                ? DarkThemeColors.white
+                : Theme.of(context).primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Theme.of(context).primaryColor, width: 2),
           ),
@@ -121,7 +160,7 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "City General Hospital",
+                hospital!.displayName,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   fontSize: isMobile ? 18 : 22,
@@ -142,7 +181,7 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
         // Notification Icon
         Container(
           decoration: BoxDecoration(
-            color: isDarkMode ? Colors.grey[850] : Colors.grey[100],
+            color: isDarkMode ? Colors.grey[850] : Colors.grey[300],
             borderRadius: BorderRadius.circular(12),
           ),
           child: IconButton(
@@ -169,7 +208,15 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 ),
               ],
             ),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      NotificationScreen(userRole: UserRole.hospital),
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -195,10 +242,12 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 });
               },
               backgroundColor: isDarkMode ? Colors.grey[850] : Colors.grey[100],
-              selectedColor: Theme.of(context).primaryColor,
+              selectedColor: isDarkMode
+                  ? DarkThemeColors.buttonPrimary
+                  : LightThemeColors.buttonPrimary,
               labelStyle: TextStyle(
                 color: isSelected
-                    ? Colors.white
+                    ? (isDarkMode ? Colors.black : Colors.black)
                     : (isDarkMode ? Colors.grey[300] : Colors.grey[700]),
                 fontWeight: FontWeight.w600,
               ),
@@ -206,7 +255,7 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 borderRadius: BorderRadius.circular(12),
                 side: BorderSide(
                   color: isSelected
-                      ? Theme.of(context).primaryColor
+                      ? Colors.white
                       : (isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
                 ),
               ),
@@ -235,7 +284,7 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
           "Total Patients",
           "1,234",
           "+12%",
-          Icons.people,
+          FontAwesomeIcons.peopleGroup,
           Colors.blue,
           isDarkMode,
           isIncrease: true,
@@ -245,7 +294,7 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
           "Appointments",
           "48",
           "+8%",
-          Icons.calendar_today,
+          FontAwesomeIcons.calendarCheck,
           Colors.green,
           isDarkMode,
           isIncrease: true,
@@ -255,16 +304,16 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
           "Active Doctors",
           "24",
           "2 on leave",
-          Icons.medical_services,
+          FontAwesomeIcons.userDoctor,
           Colors.orange,
           isDarkMode,
         ),
         _buildStatCard(
           context,
           "Revenue",
-          "\$12.5K",
+          "\$2,12.5K",
           "+15%",
-          Icons.attach_money,
+          FontAwesomeIcons.indianRupeeSign,
           Colors.purple,
           isDarkMode,
           isIncrease: true,
@@ -313,7 +362,7 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                     color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, color: color, size: 24),
+                  child: FaIcon(icon, color: color, size: 24),
                 ),
                 if (isIncrease)
                   Container(
@@ -381,106 +430,108 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
     );
   }
 
-  Widget _buildQuickActions(
-    BuildContext context,
-    bool isMobile,
-    bool isDarkMode,
-  ) {
-    final actions = [
-      _QuickAction(
-        icon: Icons.person_add,
-        label: "Add Patient",
-        color: Colors.blue,
-        onTap: () {},
-      ),
-      _QuickAction(
-        icon: Icons.calendar_month,
-        label: "Schedule",
-        color: Colors.green,
-        onTap: () {},
-      ),
-      _QuickAction(
-        icon: Icons.medical_services,
-        label: "Add Doctor",
-        color: Colors.orange,
-        onTap: () {},
-      ),
-      _QuickAction(
-        icon: Icons.description,
-        label: "Reports",
-        color: Colors.purple,
-        onTap: () {},
-      ),
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isMobile ? 2 : 4,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: isMobile ? 1.5 : 2,
-      ),
-      itemCount: actions.length,
-      itemBuilder: (context, index) {
-        final action = actions[index];
-        return _buildQuickActionCard(
-          context,
-          action.icon,
-          action.label,
-          action.color,
-          isDarkMode,
-          action.onTap,
-        );
-      },
+  Widget _buildQuickActions(BuildContext context, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Quick Actions',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionButton(
+                context,
+                isDark,
+                icon: Icons.person_add,
+                label: 'Add Patient',
+                color: Colors.blue,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => AddPatientScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildActionButton(
+                context,
+                isDark,
+                icon: Icons.schedule,
+                label: 'Add Doctor',
+                color: Colors.green,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => AddDoctorScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildActionButton(
+                context,
+                isDark,
+                icon: Icons.inventory_2,
+                label: 'Inventory',
+                color: const Color(0xFF9D4EDD),
+                onTap: () {},
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _buildQuickActionCard(
+  Widget _buildActionButton(
     BuildContext context,
-    IconData icon,
-    String label,
-    Color color,
-    bool isDarkMode,
-    VoidCallback onTap,
-  ) {
+    bool isDark, {
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              color.withValues(alpha: 0.1),
-              color.withValues(alpha: 0.05),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          color: isDark ? Colors.grey[850] : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Row(
+        child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.2),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 24),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDarkMode ? Colors.grey[300] : Colors.grey[800],
-                ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
               ),
             ),
           ],
@@ -513,7 +564,9 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 Text(
                   actionText,
                   style: TextStyle(
-                    color: Theme.of(context).primaryColor,
+                    color: isDarkMode
+                        ? DarkThemeColors.buttonPrimary
+                        : LightThemeColors.buttonPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -521,7 +574,9 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 Icon(
                   Icons.arrow_forward_ios,
                   size: 14,
-                  color: Theme.of(context).primaryColor,
+                  color: isDarkMode
+                      ? DarkThemeColors.buttonPrimary
+                      : LightThemeColors.buttonPrimary,
                 ),
               ],
             ),
@@ -1052,21 +1107,6 @@ class _HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
       ),
     );
   }
-}
-
-// Helper classes
-class _QuickAction {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
 }
 
 class _AppointmentData {

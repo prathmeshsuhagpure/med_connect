@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:med_connect/screens/notification/notification_screen.dart';
+import 'package:med_connect/screens/patient/patient_appointment_screen.dart';
 import 'package:med_connect/theme/theme.dart';
 import 'package:med_connect/utils/responsive.dart';
+import 'package:provider/provider.dart';
+import '../../providers/authentication_provider.dart';
+import '../doctor/doctor_list_screen.dart';
+import '../doctor/instant_opd_screen.dart';
+import '../hospital/hospital_list_screen.dart';
 
 class PatientHomeScreen extends StatefulWidget {
   const PatientHomeScreen({super.key});
@@ -37,7 +44,14 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   "Upcoming Appointments",
                   "View All",
                   isDarkMode,
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PatientAppointmentsScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildUpcomingAppointments(context, isMobile, isDarkMode),
@@ -48,7 +62,14 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                   "Top Hospitals Near You",
                   "See All",
                   isDarkMode,
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => HospitalListScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildTopHospitals(context, isMobile, isDarkMode),
@@ -75,6 +96,8 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
   }
 
   Widget _buildHeader(BuildContext context, bool isMobile, bool isDarkMode) {
+    final authProvider = Provider.of<AuthenticationProvider>(context);
+    final patient = authProvider.patient;
     return Row(
       children: [
         Container(
@@ -83,7 +106,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: isDarkMode
-                ? LinearGradient(colors: [Colors.white, Colors.grey])
+                ? const LinearGradient(colors: [Colors.white, Colors.grey])
                 : LinearGradient(
                     colors: [
                       Theme.of(context).primaryColor,
@@ -91,14 +114,21 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                     ],
                   ),
           ),
-          child: Center(
-            child: Icon(
-              Icons.person,
-              color: isDarkMode ? Colors.black : Colors.white,
-              size: 28,
-            ),
+          child: ClipOval(
+            child:
+                patient!.profilePicture != null &&
+                    patient.profilePicture!.isNotEmpty
+                ? Image.network(
+                    patient.profilePicture!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) {
+                      return _defaultProfileIcon(isDarkMode);
+                    },
+                  )
+                : _defaultProfileIcon(isDarkMode),
           ),
         ),
+
         const SizedBox(width: 16),
 
         Expanded(
@@ -114,7 +144,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                "John Doe",
+                patient.name,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   fontSize: isMobile ? 20 : 24,
@@ -154,10 +184,28 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                 ),
               ],
             ),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      NotificationScreen(userRole: UserRole.patient),
+                ),
+              );
+            },
           ),
         ),
       ],
+    );
+  }
+
+  Widget _defaultProfileIcon(bool isDarkMode) {
+    return Center(
+      child: Icon(
+        Icons.person,
+        color: isDarkMode ? Colors.black : Colors.white,
+        size: 28,
+      ),
     );
   }
 
@@ -205,19 +253,34 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
         icon: Icons.local_hospital,
         label: "Find Hospital",
         color: Colors.blue,
-        onTap: () {},
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => HospitalListScreen()),
+          );
+        },
       ),
       _QuickAction(
         icon: Icons.medical_services,
         label: "Find Doctor",
         color: Colors.green,
-        onTap: () {},
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => DoctorListScreen()),
+          );
+        },
       ),
       _QuickAction(
         icon: Icons.local_hospital,
         label: "Instant OPD",
         color: Colors.red,
-        onTap: () {},
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => InstantOPDScreen()),
+          );
+        },
       ),
       _QuickAction(
         icon: Icons.emergency,
@@ -250,7 +313,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
             "Quick Actions",
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           GridView.builder(

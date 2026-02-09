@@ -23,7 +23,6 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
         final patient = authProvider.patient;
 
         if (patient == null) {
-          print("patient: $patient");
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
@@ -103,7 +102,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.favorite_outline,
                             "Allergies",
-                            "Peanuts, Penicillin",
+                            patient.allergies ?? "",
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -111,7 +110,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.medication_outlined,
                             "Current Medications",
-                            "View all medications",
+                            patient.medications ?? "",
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -119,7 +118,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.local_hospital_outlined,
                             "Medical Conditions",
-                            "Diabetes, Hypertension",
+                            patient.conditions ?? "",
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -320,7 +319,6 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                                 height: isMobile ? 100 : 120,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) {
-                                  // Fallback if image fails to load
                                   return Icon(
                                     Icons.person,
                                     size: isMobile ? 50 : 60,
@@ -747,7 +745,6 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                   setState(() {
                     isLoading = false;
                   });
-                  print("Error: $e");
                 }
               },
               style: ElevatedButton.styleFrom(

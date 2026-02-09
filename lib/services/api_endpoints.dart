@@ -13,5 +13,6 @@ class ApiEndpoints {
   static const updateUserProfile = '/api/user/update-profile';
   static const getUserProfile = '/api/user/profile';
   static const deleteUserProfile = '/api/user/profile';
+  static const uploadProfileImage = '/api/user/upload/profile-picture';
 
 }

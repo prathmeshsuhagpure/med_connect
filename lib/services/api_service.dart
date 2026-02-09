@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'api_endpoints.dart';
 
@@ -68,20 +69,25 @@ class ApiService {
 
       // Hospital-specific fields
       if (role == 'hospital') {
-        if (hospitalName?.isNotEmpty ?? false)
+        if (hospitalName?.isNotEmpty ?? false) {
           body['hospitalName'] = hospitalName!;
-        if (registrationNumber?.isNotEmpty ?? false)
+        }
+        if (registrationNumber?.isNotEmpty ?? false) {
           body['registrationNumber'] = registrationNumber!;
+        }
       }
 
       // Doctor-specific fields
       if (role == 'doctor') {
-        if (specialization?.isNotEmpty ?? false)
+        if (specialization?.isNotEmpty ?? false) {
           body['specialization'] = specialization!;
-        if (qualification?.isNotEmpty ?? false)
+        }
+        if (qualification?.isNotEmpty ?? false) {
           body['qualification'] = qualification!;
-        if (licenseNumber?.isNotEmpty ?? false)
+        }
+        if (licenseNumber?.isNotEmpty ?? false) {
           body['licenseNumber'] = licenseNumber!;
+        }
       }
 
       final response = await http.post(
@@ -165,7 +171,7 @@ class ApiService {
 
       final data = jsonDecode(response.body);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && data['success'] == true) {
         return data;
       } else {
         return {
@@ -174,14 +180,40 @@ class ApiService {
         };
       }
     } catch (e) {
-      throw Exception('Failed to get user profile: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
+    }
+  }
+
+  Future<String?> uploadProfileImage(File imageFile, String token) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl${ApiEndpoints.uploadProfileImage}'),
+      );
+      request.headers['Authorization'] = 'Bearer $token';
+      request.files.add(
+        await http.MultipartFile.fromPath('image', imageFile.path),
+      );
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      final data = jsonDecode(responseBody);
+      if (response.statusCode == 200) {
+        return data['imageUrl'];
+      }
+      return null;
+    } catch (e) {
+      print("Image upload error: $e");
+      return null;
     }
   }
 
   Future<void> logout() async {
     try {
       await http.post(
-        Uri.parse('$baseUrl/auth/logout'),
+        Uri.parse('$baseUrl${ApiEndpoints.logout}'),
         headers: _getHeaders(includeAuth: true),
       );
     } catch (e) {

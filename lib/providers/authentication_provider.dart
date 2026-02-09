@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/api_service.dart';
@@ -19,19 +20,27 @@ class AuthenticationProvider extends ChangeNotifier {
 
   // Getters
   bool get isLoading => _isLoading;
+
   bool get isAuthenticated => _token != null && _currentUser != null;
+
   String? get error => _error;
+
   BaseUser? get currentUser => _currentUser;
+
   String? get userRole => _currentUser?.role;
 
   // Type-safe getters
   PatientModel? get patient => _currentUser?.asPatient;
+
   HospitalModel? get hospital => _currentUser?.asHospital;
+
   DoctorModel? get doctor => _currentUser?.asDoctor;
 
   // Role checks
   bool get isPatient => _currentUser?.isPatient ?? false;
+
   bool get isHospital => _currentUser?.isHospital ?? false;
+
   bool get isDoctor => _currentUser?.isDoctor ?? false;
 
   void clearError() {
@@ -41,10 +50,10 @@ class AuthenticationProvider extends ChangeNotifier {
 
   /// Login
   Future<Map<String, dynamic>?> login(
-      String email,
-      String password, {
-        required String role,
-      }) async {
+    String email,
+    String password, {
+    required String role,
+  }) async {
     try {
       _isLoading = true;
       _error = null;
@@ -339,26 +348,45 @@ class AuthenticationProvider extends ChangeNotifier {
     }
   }
 
-  /// Refresh user data
-  Future<bool> refreshUserData() async {
+  Future<bool> fetchUserProfile() async {
     try {
-      final response = await _apiService.verifyToken();
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
 
-      if (response['success'] == true && response['user'] != null) {
-        _currentUser = UserFactory.fromJson(response['user']);
+      final result = await _apiService.getUserProfile();
+
+      if (result['success'] == true && result['user'] != null) {
+        _currentUser = UserFactory.fromJson(result['user']);
 
         await _secureStorage.write(
           key: 'user_data',
-          value: jsonEncode(response['user']),
+          value: jsonEncode(result['user']),
         );
 
         notifyListeners();
         return true;
+      } else {
+        _error = result['message'] ?? 'Failed to fetch profile';
+        notifyListeners();
+        return false;
       }
-      return false;
     } catch (e) {
-      print('Error refreshing user data: $e');
+      _error = e.toString();
+      print('Error fetching user profile: $e');
+      notifyListeners();
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
+  }
+
+  Future<String?> uploadProfileImage(File imageFile) async {
+    if (_token == null) {
+      print("No token available");
+      return null;
+    }
+    return await _apiService.uploadProfileImage(imageFile, _token!);
   }
 }

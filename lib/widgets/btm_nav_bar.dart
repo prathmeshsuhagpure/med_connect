@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:med_connect/screens/hospital/hospital_dashboard_screen.dart';
+import 'package:med_connect/screens/hospital/hospital_list_screen.dart';
 import 'package:med_connect/screens/patient/patient_appointment_screen.dart';
 import 'package:med_connect/screens/patient/patient_home_screen.dart';
 import 'package:med_connect/screens/patient/patient_profile_screen.dart';
@@ -20,7 +20,7 @@ class BottomNavBarState extends State<BottomNavBar> {
   final List<Widget> _pages = [
     const PatientHomeScreen(),
     const PatientAppointmentsScreen(),
-    const HospitalDashboardScreen(),
+    const HospitalListScreen(),
     const PatientProfileScreen(),
   ];
 
@@ -86,9 +86,9 @@ class BottomNavBarState extends State<BottomNavBar> {
                 label: 'Appointments',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.favorite_outline),
-                activeIcon: Icon(Icons.favorite),
-                label: 'Saved',
+                icon: Icon(Icons.local_hospital_outlined),
+                activeIcon: Icon(Icons.local_hospital),
+                label: 'Hospitals',
               ),
               BottomNavigationBarItem(
                 icon: Icon(Icons.person_outline),
