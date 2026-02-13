@@ -15,4 +15,18 @@ class ApiEndpoints {
   static const deleteUserProfile = '/api/user/profile';
   static const uploadProfileImage = '/api/user/upload/profile-picture';
 
+  // Doctor EndPoints
+  static const getAllDoctors = '/api/doctor/getDoctors';
+  static const getDoctorsByHospital = '/api/doctor/hospitals';
+  static const addDoctor = '/api/doctor/addDoctors';
+  static const updateDoctor = '/api/doctor/updateDoctor';
+  static const deleteDoctor = '/api/doctor/deleteDoctor';
+
+  // Hospital EndPoints
+  static const getHospitals = '/api/hospital/';
+  static const getHospital = '/api/hospital';
+  static const addHospital = '/api/hospital/addHospital';
+  static const updateHospital = '/api/hospital/updateHospital';
+  static const deleteHospital = '/api/hospital/deleteHospital';
+  static const toggleStatus = '/api/hospital';
 }

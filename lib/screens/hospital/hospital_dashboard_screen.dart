@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:med_connect/models/user/doctor_model.dart';
 import 'package:med_connect/screens/doctor/add_doctor_screen.dart';
 import 'package:med_connect/screens/doctor/doctor_management_screen.dart';
 import 'package:med_connect/screens/hospital/appointment_management_screen.dart';
@@ -7,6 +8,7 @@ import 'package:med_connect/theme/theme.dart';
 import 'package:provider/provider.dart';
 import '../../providers/authentication_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../../providers/doctor_provider.dart';
 import '../notification/notification_screen.dart';
 import '../patient/add_patient_screen.dart';
 
@@ -20,6 +22,24 @@ class HospitalDashboardScreen extends StatefulWidget {
 
 class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
   String _selectedPeriod = "Today";
+
+  @override
+  void initState() {
+    super.initState();
+
+    final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
+
+    final doctorProvider = Provider.of<DoctorProvider>(context, listen: false);
+
+    final hospital = authProvider.hospital;
+
+    if (hospital != null) {
+      doctorProvider.loadDoctorsByHospital(hospital.id.toString(), null);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +112,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 // Doctors Status
                 _buildSectionHeader(
                   context,
-                  "Doctors Availability",
+                  "Doctors Available",
                   "Manage",
                   isDarkMode,
                   onTap: () {
@@ -271,6 +291,12 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
     bool isMobile,
     bool isDarkMode,
   ) {
+    final doctorProvider = context.watch<DoctorProvider>();
+    final doctors = doctorProvider.doctors;
+    final activeDoctors = doctors.where((d) => d.isAvailable == true).length;
+
+    final onLeaveDoctors = doctors.where((d) => d.isAvailable == false).length;
+
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -302,8 +328,8 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
         _buildStatCard(
           context,
           "Active Doctors",
-          "24",
-          "2 on leave",
+          activeDoctors.toString(),
+          "$onLeaveDoctors on leave",
           FontAwesomeIcons.userDoctor,
           Colors.orange,
           isDarkMode,
@@ -860,29 +886,15 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
     bool isMobile,
     bool isDarkMode,
   ) {
-    final doctors = [
-      _DoctorStatus(
-        name: "Dr. Sarah Johnson",
-        specialization: "Cardiologist",
-        status: "Available",
-        patients: 12,
-        color: Colors.green,
-      ),
-      _DoctorStatus(
-        name: "Dr. Michael Brown",
-        specialization: "Orthopedic",
-        status: "In Consultation",
-        patients: 8,
-        color: Colors.orange,
-      ),
-      _DoctorStatus(
-        name: "Dr. Emily Davis",
-        specialization: "Pediatrician",
-        status: "Available",
-        patients: 15,
-        color: Colors.green,
-      ),
-    ];
+    final doctorProvider = context.watch<DoctorProvider>();
+    final doctors = doctorProvider.doctors;
+    if (doctorProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (doctors.isEmpty) {
+      return const Text("No doctors available");
+    }
 
     return Column(
       children: doctors.map((doctor) {
@@ -896,7 +908,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
 
   Widget _buildDoctorStatusCard(
     BuildContext context,
-    _DoctorStatus doctor,
+    DoctorModel doctor,
     bool isDarkMode,
   ) {
     return Container(
@@ -921,10 +933,14 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: doctor.color.withValues(alpha: 0.1),
+              color: isDarkMode
+                  ? DarkThemeColors.buttonPrimary
+                  : LightThemeColors.buttonPrimary,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.medical_services, color: doctor.color, size: 28),
+            child: Icon(Icons.medical_services,
+                color: Colors.white,
+                size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -939,7 +955,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  doctor.specialization,
+                  doctor.specialization ??"",
                   style: TextStyle(
                     fontSize: 13,
                     color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
@@ -952,28 +968,28 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: doctor.color,
+                        color: Colors.green,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      doctor.status,
+                      doctor.isAvailable ? "Available" : "Unavailable",
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: doctor.color,
+                        color: Colors.green
                       ),
                     ),
                     const SizedBox(width: 16),
                     Icon(
-                      Icons.people,
+                      Icons.work,
                       size: 14,
                       color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      "${doctor.patients} patients",
+                      "${doctor.department}",
                       style: TextStyle(
                         fontSize: 12,
                         color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
@@ -1137,22 +1153,6 @@ class _PatientData {
     required this.name,
     required this.lastVisit,
     required this.condition,
-    required this.color,
-  });
-}
-
-class _DoctorStatus {
-  final String name;
-  final String specialization;
-  final String status;
-  final int patients;
-  final Color color;
-
-  _DoctorStatus({
-    required this.name,
-    required this.specialization,
-    required this.status,
-    required this.patients,
     required this.color,
   });
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:med_connect/screens/notification/notification_screen.dart';
 import 'package:med_connect/screens/patient/patient_appointment_screen.dart';
+import 'package:med_connect/screens/patient/specializations_screen.dart';
 import 'package:med_connect/theme/theme.dart';
 import 'package:med_connect/utils/responsive.dart';
 import 'package:provider/provider.dart';
@@ -740,33 +742,105 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     final specializations = [
       _Specialization(
         name: "Cardiology",
-        icon: Icons.favorite,
+        icon: FontAwesomeIcons.heartPulse,
         color: Colors.red,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SpecializationListScreen(
+                specialization: "Cardiology",
+                icon: FontAwesomeIcons.heartPulse,
+                color: Colors.red,
+              ),
+            ),
+          );
+        },
       ),
       _Specialization(
         name: "Dentistry",
-        icon: Icons.local_hospital,
+        icon: FontAwesomeIcons.tooth,
         color: Colors.blue,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SpecializationListScreen(
+                specialization: "Dentistry",
+                icon: FontAwesomeIcons.tooth,
+                color: Colors.blue,
+              ),
+            ),
+          );
+        }
       ),
       _Specialization(
         name: "Orthopedics",
-        icon: Icons.accessibility_new,
+        icon: FontAwesomeIcons.bone,
         color: Colors.green,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SpecializationListScreen(
+                specialization: "Orthopedics",
+                icon: FontAwesomeIcons.bone,
+                color: Colors.green,
+              ),
+            ),
+          );
+        }
       ),
       _Specialization(
         name: "Neurology",
-        icon: Icons.psychology,
+        icon: FontAwesomeIcons.brain,
         color: Colors.purple,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SpecializationListScreen(
+                specialization: "Neurology",
+                icon: FontAwesomeIcons.brain,
+                color: Colors.purple,
+              ),
+            ),
+          );
+        }
       ),
       _Specialization(
         name: "Pediatrics",
         icon: Icons.child_care,
         color: Colors.orange,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SpecializationListScreen(
+                specialization: "Pediatrics",
+                icon: Icons.child_care,
+                color: Colors.orange,
+              ),
+            ),
+          );
+        }
       ),
       _Specialization(
         name: "Dermatology",
         icon: Icons.face,
         color: Colors.pink,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SpecializationListScreen(
+                specialization: "Dermatology",
+                icon: Icons.face,
+                color: Colors.pink,
+              ),
+            ),
+          );
+        }
       ),
     ];
 
@@ -793,7 +867,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
     bool isDarkMode,
   ) {
     return InkWell(
-      onTap: () {},
+      onTap: specialization.onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -1016,10 +1090,12 @@ class _Specialization {
   final String name;
   final IconData icon;
   final Color color;
+  final VoidCallback onTap;
 
   _Specialization({
     required this.name,
     required this.icon,
     required this.color,
+    required this.onTap,
   });
 }

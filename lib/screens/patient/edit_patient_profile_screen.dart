@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:med_connect/theme/theme.dart';
+import 'package:med_connect/widgets/loading_overlay.dart';
 import 'package:provider/provider.dart';
 import '../../providers/authentication_provider.dart';
 
@@ -69,8 +69,8 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
 
     if (patient != null) {
       _fullNameController.text = patient.name;
-      _emailController.text = patient.email;
-      _phoneController.text = patient.phoneNumber;
+      _emailController.text = patient.email ?? "";
+      _phoneController.text = patient.phoneNumber ?? "";
       _dobController.text = patient.dateOfBirth ?? '';
       _heightController.text = patient.height?.toString() ?? '';
       _weightController.text = patient.weight?.toString() ?? '';
@@ -373,88 +373,14 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
             ),
           ),
         ),
-        if (_isUploadingImage || _isSaving) _buildLoadingOverlay(isDarkMode),
+        if (_isUploadingImage || _isSaving)
+          LoadingOverlay(
+            isDarkMode: isDarkMode,
+            isUploadingImage: _isUploadingImage,
+          ),
       ],
     );
   }
-
-  Widget _buildLoadingOverlay(bool isDarkMode) {
-    return Positioned.fill(
-      child: AbsorbPointer(
-        absorbing: true,
-        child: Stack(
-          children: [
-            // 🔹 Blur background
-            BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Container(
-                color: Colors.black.withValues(alpha: 0.2),
-              ),
-            ),
-
-            // 🔹 Dialog
-            Center(
-              child: Container(
-                width: 280,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: isDarkMode ? Colors.grey[900] : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 20,
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 20),
-
-                    Text(
-                      _isUploadingImage
-                          ? "Uploading profile picture…"
-                          : "Saving changes…",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: isDarkMode
-                            ? DarkThemeColors.textPrimary
-                            : LightThemeColors.textPrimary,
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    if (_isUploadingImage)
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _cancelUpload = true;
-                            _isUploadingImage = false;
-                          });
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red,
-                        ),
-                        child: const Text(
-                          "Cancel Upload",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
 
   Widget _buildProfilePictureSection(BuildContext context, bool isDarkMode) {
     final authProvider = Provider.of<AuthenticationProvider>(
@@ -852,7 +778,6 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
             _profileImageFile!,
           );
 
-          // ❗ User cancelled upload → stop everything
           if (_cancelUpload) {
             setState(() {
               _isUploadingImage = false;
@@ -864,10 +789,9 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
           uploadedImageUrl = result;
         } catch (e) {
           if (!_cancelUpload) {
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Failed to upload profile picture"),
-              ),
+              const SnackBar(content: Text("Failed to upload profile picture")),
             );
           }
 
@@ -936,7 +860,6 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
           }
         });
       } else {
-        print("Error1: ${authProvider.error}");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -965,7 +888,6 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
 
       setState(() => _isSaving = false);
 
-      print("Error: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(

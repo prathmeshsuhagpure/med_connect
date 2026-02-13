@@ -11,6 +11,11 @@ class DoctorModel extends BaseUser {
   final bool? isVerified;
   final double? rating;
   final int? totalReviews;
+  bool isAvailable;
+  final String? department;
+  final String? hospitalId;
+  final String? gender;
+  final String? bio;
 
   DoctorModel({
     required super.id,
@@ -31,11 +36,16 @@ class DoctorModel extends BaseUser {
     this.isVerified,
     this.rating,
     this.totalReviews,
+    required this.isAvailable,
+    this.department,
+    this.hospitalId,
+    this.gender,
+    this.bio,
   }) : super(role: 'doctor');
 
   factory DoctorModel.fromJson(Map<String, dynamic> json) {
     return DoctorModel(
-      id: json['id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? "",
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       phoneNumber: json['phone'] ?? json['phoneNumber'] ?? '',
@@ -57,6 +67,11 @@ class DoctorModel extends BaseUser {
       updatedAt: json['updatedAt'] != null
           ? DateTime.tryParse(json['updatedAt'])
           : null,
+      isAvailable: json['isAvailable'] ?? false,
+      department: json['department'],
+      hospitalId: json['hospitalId'],
+      gender: json['gender'],
+      bio: json['bio'],
     );
   }
 
@@ -91,6 +106,11 @@ class DoctorModel extends BaseUser {
       'isVerified': isVerified,
       'rating': rating,
       'totalReviews': totalReviews,
+      'department': department,
+      'isAvailable': isAvailable,
+      'hospitalId': hospitalId,
+      'gender': gender,
+      'bio': bio,
     };
   }
 
@@ -111,6 +131,11 @@ class DoctorModel extends BaseUser {
     bool? isVerified,
     double? rating,
     int? totalReviews,
+    bool? isAvailable,
+    String? department,
+    String? hospitalId,
+    String? gender,
+    String? bio,
   }) {
     return DoctorModel(
       id: id ?? this.id,
@@ -129,6 +154,11 @@ class DoctorModel extends BaseUser {
       isVerified: isVerified ?? this.isVerified,
       rating: rating ?? this.rating,
       totalReviews: totalReviews ?? this.totalReviews,
+      isAvailable: isAvailable ?? this.isAvailable,
+      department: department ?? this.department,
+      hospitalId: hospitalId ?? this.hospitalId,
+      gender: gender ?? this.gender,
+      bio: bio ?? this.bio,
     );
   }
 

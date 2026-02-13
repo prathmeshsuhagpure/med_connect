@@ -42,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final result = await authProvider.login(
         _emailController.text.trim(),
         _passwordController.text.trim(),
-        role: _selectedRole.name, // Converts enum to string: 'patient', 'hospital', 'doctor'
+        role: _selectedRole.name,
       );
 
       if (!mounted) return;
@@ -74,7 +74,6 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.pushReplacementNamed(context, '/doctor_home');
         }
       } else {
-        // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(

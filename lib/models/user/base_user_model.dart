@@ -1,9 +1,9 @@
 abstract class BaseUser {
-  final String id;
+  final String? id;
   final String name;
-  final String email;
+  final String? email;
   final String role;
-  final String phoneNumber;
+  final String? phoneNumber;
   final String? profilePicture;
   final String? address;
   final DateTime? createdAt;

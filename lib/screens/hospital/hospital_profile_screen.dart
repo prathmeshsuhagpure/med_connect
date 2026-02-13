@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:med_connect/providers/doctor_provider.dart';
+import 'package:med_connect/screens/doctor/doctor_management_screen.dart';
+import 'package:med_connect/screens/hospital/edit_hospital_profile_screen.dart';
 import 'package:med_connect/screens/hospital/hospital_settings_screen.dart';
+import 'package:med_connect/theme/theme.dart';
+import 'package:med_connect/widgets/empty_field.dart';
+import 'package:provider/provider.dart';
+import '../../providers/authentication_provider.dart';
+import '../../utils/helper.dart';
 
 class HospitalProfileScreen extends StatefulWidget {
   const HospitalProfileScreen({super.key});
@@ -10,23 +18,38 @@ class HospitalProfileScreen extends StatefulWidget {
 
 class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 650;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
+    final authProvider = context.watch<AuthenticationProvider>();
+    final hospital = authProvider.hospital;
+
+    if (hospital == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // App Bar with Cover Image
-          _buildSliverAppBar(context, isDarkMode),
+          _buildSliverAppBar(context, isDarkMode, hospital),
 
           // Content
           SliverToBoxAdapter(
             child: Column(
               children: [
-                // Hospital Info Header
-                _buildHospitalInfoHeader(context, isMobile, isDarkMode),
+                _buildHospitalInfoHeader(
+                  context,
+                  isMobile,
+                  isDarkMode,
+                  hospital,
+                ),
                 const SizedBox(height: 24),
 
                 Padding(
@@ -35,49 +58,67 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Quick Stats
-                      _buildQuickStats(context, isMobile, isDarkMode),
+                      _buildQuickStats(context, isMobile, isDarkMode, hospital),
                       const SizedBox(height: 24),
-
-                      // About Section
+                      _buildSectionTitle(context, "Contact Information"),
+                      const SizedBox(height: 14),
+                      _buildContactInfo(context, isDarkMode, hospital),
+                      const SizedBox(height: 24),
                       _buildSectionTitle(context, "About Hospital"),
                       const SizedBox(height: 12),
-                      _buildAboutSection(context, isDarkMode),
+                      _buildAboutSection(context, isDarkMode, hospital),
                       const SizedBox(height: 24),
-
-                      // Contact Information
-                      _buildSectionTitle(context, "Contact Information"),
+                      _buildSectionTitle(context, "Departments"),
                       const SizedBox(height: 12),
-                      _buildContactInfo(context, isDarkMode),
+                      _buildDepartments(
+                        context,
+                        isMobile,
+                        isDarkMode,
+                        hospital,
+                      ),
                       const SizedBox(height: 24),
-
-                      // Operating Hours
-                      _buildSectionTitle(context, "Operating Hours"),
-                      const SizedBox(height: 12),
-                      _buildOperatingHours(context, isDarkMode),
-                      const SizedBox(height: 24),
+                      if (hospital.is24x7 == true)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionTitle(context, "Operating Hours"),
+                            const SizedBox(height: 12),
+                            _build24x7Banner(context, isDarkMode),
+                            const SizedBox(height: 24),
+                          ],
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionTitle(context, "Operating Hours"),
+                            const SizedBox(height: 12),
+                            _buildOperatingHours(context, isDarkMode, hospital),
+                            const SizedBox(height: 24),
+                          ],
+                        ),
 
                       // Services & Facilities
                       _buildSectionTitle(context, "Services & Facilities"),
                       const SizedBox(height: 12),
-                      _buildServicesFacilities(context, isMobile, isDarkMode),
-                      const SizedBox(height: 24),
-
-                      // Departments
-                      _buildSectionTitle(context, "Departments"),
-                      const SizedBox(height: 12),
-                      _buildDepartments(context, isMobile, isDarkMode),
+                      _buildServicesFacilities(
+                        context,
+                        isMobile,
+                        isDarkMode,
+                        hospital,
+                      ),
                       const SizedBox(height: 24),
 
                       // Gallery
                       _buildSectionTitle(context, "Gallery"),
                       const SizedBox(height: 12),
-                      _buildGallery(context, isMobile, isDarkMode),
+                      _buildGallery(context, isMobile, isDarkMode, hospital),
                       const SizedBox(height: 24),
 
                       // Reviews & Ratings
                       _buildSectionTitle(context, "Reviews & Ratings"),
                       const SizedBox(height: 12),
-                      _buildReviewsSection(context, isDarkMode),
+                      _buildReviewsSection(context, isDarkMode, hospital),
                       const SizedBox(height: 24),
 
                       // Accreditations
@@ -86,11 +127,16 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                         "Accreditations & Certifications",
                       ),
                       const SizedBox(height: 12),
-                      _buildAccreditations(context, isDarkMode),
+                      _buildAccreditations(context, isDarkMode, hospital),
                       const SizedBox(height: 24),
 
                       // Management Actions
-                      _buildManagementActions(context, isMobile, isDarkMode),
+                      _buildManagementActions(
+                        context,
+                        isMobile,
+                        isDarkMode,
+                        hospital,
+                      ),
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -103,7 +149,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
     );
   }
 
-  Widget _buildSliverAppBar(BuildContext context, bool isDarkMode) {
+  Widget _buildSliverAppBar(BuildContext context, bool isDarkMode, hospital) {
     return SliverAppBar(
       expandedHeight: 200,
       pinned: true,
@@ -121,12 +167,24 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
+                image:
+                    hospital!.coverPhoto != null &&
+                        hospital.coverPhoto!.isNotEmpty
+                    ? DecorationImage(
+                        image: NetworkImage(hospital.coverPhoto!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
-              child: Icon(
-                Icons.local_hospital,
-                size: 100,
-                color: Colors.white.withValues(alpha: 0.3),
-              ),
+              child: hospital.coverPhoto == null || hospital.coverPhoto!.isEmpty
+                  ? Center(
+                      child: Icon(
+                        Icons.local_hospital,
+                        size: 100,
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                    )
+                  : null,
             ),
             Container(
               decoration: BoxDecoration(
@@ -162,13 +220,12 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
     BuildContext context,
     bool isMobile,
     bool isDarkMode,
+    hospital,
   ) {
     return Container(
-      transform: Matrix4.translationValues(0, -40, 0),
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
       child: Column(
         children: [
-          // Hospital Logo
           Container(
             width: 100,
             height: 100,
@@ -176,7 +233,9 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
               color: Colors.white,
               shape: BoxShape.circle,
               border: Border.all(
-                color: Theme.of(context).primaryColor,
+                color: isDarkMode
+                    ? DarkThemeColors.buttonPrimary
+                    : LightThemeColors.buttonPrimary,
                 width: 4,
               ),
               boxShadow: [
@@ -187,17 +246,23 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                 ),
               ],
             ),
-            child: Icon(
-              Icons.local_hospital,
-              size: 50,
-              color: Theme.of(context).primaryColor,
+            child: ClipOval(
+              child: hospital!.logo != null && hospital.logo!.isNotEmpty
+                  ? Image.network(
+                      hospital.logo!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _fallbackHospitalIcon(context);
+                      },
+                    )
+                  : _fallbackHospitalIcon(context),
             ),
           ),
+
           const SizedBox(height: 16),
 
-          // Hospital Name
           Text(
-            "City General Hospital",
+            hospital.displayName,
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
@@ -205,7 +270,27 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
           ),
           const SizedBox(height: 8),
 
-          // Hospital ID and Type
+          // Hospital Type
+          if (hospital.type != null && hospital.type!.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: isDarkMode
+                    ? Colors.blue.withValues(alpha: 0.2)
+                    : Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                hospital.type!,
+                style: TextStyle(
+                  color: isDarkMode ? Colors.blue[300] : Colors.blue[700],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -215,15 +300,17 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                  color: isDarkMode
+                      ? DarkThemeColors.buttonSecondary
+                      : LightThemeColors.buttonSecondary,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  "ID: HOS123456",
+                  "Reg No: ${hospital.registrationNumber}",
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Theme.of(context).primaryColor,
+                    color: isDarkMode ? Colors.white : Colors.black,
                   ),
                 ),
               ),
@@ -234,16 +321,18 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
+                  color: isDarkMode
+                      ? DarkThemeColors.buttonSecondary
+                      : LightThemeColors.buttonSecondary,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.verified, size: 14, color: Colors.green),
-                    SizedBox(width: 4),
+                    const Icon(Icons.verified, size: 14, color: Colors.green),
+                    const SizedBox(width: 4),
                     Text(
-                      "Verified",
-                      style: TextStyle(
+                      hospital.isVerified ? "Verified" : "Not Verified",
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Colors.green,
@@ -255,34 +344,59 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
             ],
           ),
           const SizedBox(height: 12),
-
-          // Rating
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                children: List.generate(
-                  5,
-                  (index) => Icon(
-                    index < 4 ? Icons.star : Icons.star_half,
-                    color: Colors.amber,
-                    size: 20,
-                  ),
-                ),
+              Icon(
+                Icons.location_on,
+                size: 16,
+                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
               ),
-              const SizedBox(width: 8),
-              Text(
-                "4.8 (1,234 reviews)",
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  "${hospital.city}, ${hospital.state}",
+                  style: TextStyle(
+                    color: isDarkMode ? Colors.white : Colors.black,
+                    fontSize: 14,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          buildRatingStars(hospital.rating ?? 0.0),
         ],
       ),
+    );
+  }
+
+  Widget _fallbackHospitalIcon(BuildContext context) {
+    return Container(
+      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+      child: Icon(
+        Icons.local_hospital,
+        size: 50,
+        color: Theme.of(context).primaryColor,
+      ),
+    );
+  }
+
+  Widget buildRatingStars(double rating, {double size = 20}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(5, (index) {
+        return Icon(
+          index < rating.floor()
+              ? Icons.star
+              : index < rating
+              ? Icons.star_half
+              : Icons.star_border,
+          color: Colors.amber,
+          size: size,
+        );
+      }),
     );
   }
 
@@ -290,96 +404,81 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
     BuildContext context,
     bool isMobile,
     bool isDarkMode,
+    hospital,
   ) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            context,
-            "50+",
-            "Doctors",
-            Icons.medical_services,
-            Colors.blue,
-            isDarkMode,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            context,
-            "20+",
-            "Departments",
-            Icons.business,
-            Colors.green,
-            isDarkMode,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            context,
-            "500+",
-            "Beds",
-            Icons.hotel,
-            Colors.orange,
-            isDarkMode,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildStatCard(
-            context,
-            "24/7",
-            "Emergency",
-            Icons.emergency,
-            Colors.red,
-            isDarkMode,
-          ),
-        ),
-      ],
-    );
-  }
+    final doctorProvider = context.watch<DoctorProvider>();
+    final totalDoctors = doctorProvider.doctors.length;
+    final stats = [
+      {
+        "icon": Icons.hotel,
+        "label": "Total Beds",
+        "value": hospital.bedCount.toString(),
+      },
+      {
+        "icon": Icons.medical_services,
+        "label": "ICU Beds",
+        "value": hospital.icuBedCount.toString(),
+      },
+      {
+        "icon": Icons.emergency,
+        "label": "Emergency",
+        "value": hospital.emergencyBedCount.toString(),
+      },
+      {
+        "icon": Icons.people,
+        "label": "Doctors",
+        "value": totalDoctors.toString(),
+      },
+    ];
 
-  Widget _buildStatCard(
-    BuildContext context,
-    String value,
-    String label,
-    IconData icon,
-    Color color,
-    bool isDarkMode,
-  ) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[850] : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
         ),
       ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: stats.map((stat) {
+          return _buildStatItem(stat, isDarkMode);
+        }).toList(),
       ),
+    );
+  }
+
+  Widget _buildStatItem(Map<String, dynamic> stat, bool isDarkMode) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDarkMode
+                ? Colors.blue.withValues(alpha: 0.2)
+                : Colors.blue.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            stat["icon"] as IconData,
+            color: isDarkMode ? Colors.blue[300] : Colors.blue[700],
+            size: 28,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          stat["value"] as String,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        Text(
+          stat["label"] as String,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 
@@ -392,7 +491,10 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
     );
   }
 
-  Widget _buildAboutSection(BuildContext context, bool isDarkMode) {
+  Widget _buildAboutSection(BuildContext context, bool isDarkMode, hospital) {
+    if (hospital.description == null || hospital.description!.isEmpty) {
+      return EmptyField(isDarkMode: isDarkMode, value: 'About not available');
+    }
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -406,48 +508,33 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "City General Hospital is a leading multi-specialty healthcare institution committed to providing world-class medical care. Established in 1985, we have been serving the community for over 35 years with dedication and excellence.",
+            hospital!.description ?? "",
             style: TextStyle(
               fontSize: 14,
               height: 1.6,
               color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
             ),
           ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildChip("Multi-Specialty", Colors.blue, isDarkMode),
-              _buildChip("Trauma Center", Colors.red, isDarkMode),
-              _buildChip("Research Facility", Colors.purple, isDarkMode),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildChip(String label, Color color, bool isDarkMode) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
-    );
-  }
+  Widget _buildDepartments(
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+    hospital,
+  ) {
+    final List<String> departments = List<String>.from(hospital.departments);
 
-  Widget _buildContactInfo(BuildContext context, bool isDarkMode) {
+    if (departments.isEmpty) {
+      return EmptyField(
+        isDarkMode: isDarkMode,
+        value: 'Departments not available',
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -457,106 +544,84 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
           color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
         ),
       ),
-      child: Column(
-        children: [
-          _buildContactTile(
-            context,
-            Icons.location_on,
-            "Address",
-            "123 Medical Street, Downtown\nNew York, NY 10001",
-            Colors.red,
-            isDarkMode,
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isMobile ? 2 : 4,
+            childAspectRatio: 2.5,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
           ),
-          Divider(color: isDarkMode ? Colors.grey[700] : Colors.grey[200]),
-          _buildContactTile(
-            context,
-            Icons.phone,
-            "Phone",
-            "+1 (234) 567-8900",
-            Colors.green,
-            isDarkMode,
-          ),
-          Divider(color: isDarkMode ? Colors.grey[700] : Colors.grey[200]),
-          _buildContactTile(
-            context,
-            Icons.email,
-            "Email",
-            "contact@citygeneralhospital.com",
-            Colors.blue,
-            isDarkMode,
-          ),
-          Divider(color: isDarkMode ? Colors.grey[700] : Colors.grey[200]),
-          _buildContactTile(
-            context,
-            Icons.language,
-            "Website",
-            "www.citygeneralhospital.com",
-            Colors.purple,
-            isDarkMode,
-          ),
-        ],
-      ),
-    );
-  }
+          itemCount: departments.length,
+          itemBuilder: (context, index) {
+            final String deptName = departments[index];
 
-  Widget _buildContactTile(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String value,
-    Color color,
-    bool isDarkMode,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.blue.withValues(alpha: 0.1),
+                    Colors.purple.withValues(alpha: 0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    getDepartmentIconFromName(deptName),
+                    size: 18,
+                    color: isDarkMode ? Colors.blue[300] : Colors.blue[700],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.copy,
-            size: 18,
-            color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-          ),
-        ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      deptName,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDarkMode ? Colors.blue[300] : Colors.blue[700],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildOperatingHours(BuildContext context, bool isDarkMode) {
-    final hours = [
-      {"day": "Monday - Friday", "time": "8:00 AM - 8:00 PM"},
-      {"day": "Saturday", "time": "9:00 AM - 6:00 PM"},
-      {"day": "Sunday", "time": "10:00 AM - 4:00 PM"},
-      {"day": "Emergency", "time": "24/7 Open", "isEmergency": true},
+  Widget _buildContactInfo(BuildContext context, bool isDarkMode, hospital) {
+    final contacts = [
+      {
+        "icon": Icons.phone,
+        "label": "Phone",
+        "value": hospital!.phoneNumber ?? "+1 (555) 123-4567",
+      },
+      {
+        "icon": Icons.email,
+        "label": "Email",
+        "value": hospital.email ?? "contact@hospital.com",
+      },
+      {
+        "icon": Icons.location_on,
+        "label": "Address",
+        "value": hospital.address ?? "123 Healthcare Ave, Medical District",
+      },
+      {
+        "icon": Icons.language,
+        "label": "Website",
+        "value": hospital.website ?? "www.hospital.com",
+      },
     ];
 
     return Container(
@@ -569,63 +634,272 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
         ),
       ),
       child: Column(
-        children: hours.asMap().entries.map((entry) {
-          final index = entry.key;
-          final hour = entry.value;
-          final isEmergency = hour["isEmergency"] == true;
-
-          return Column(
-            children: [
-              if (index > 0)
-                Divider(
-                  color: isDarkMode ? Colors.grey[700] : Colors.grey[200],
+        children: contacts.map((contact) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDarkMode
+                        ? Colors.blue.withValues(alpha: 0.2)
+                        : Colors.blue.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    contact["icon"] as IconData,
+                    size: 20,
+                    color: isDarkMode ? Colors.blue[300] : Colors.blue[700],
+                  ),
                 ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    if (isEmergency)
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(
-                          Icons.emergency,
-                          color: Colors.red,
-                          size: 20,
-                        ),
-                      ),
-                    if (isEmergency) const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        hour["day"].toString(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        contact["label"] as String,
                         style: TextStyle(
-                          fontWeight: isEmergency
-                              ? FontWeight.bold
-                              : FontWeight.w600,
-                          color: isEmergency ? Colors.red : null,
+                          fontSize: 12,
+                          color: isDarkMode
+                              ? Colors.grey[400]
+                              : Colors.grey[600],
                         ),
                       ),
-                    ),
-                    Text(
-                      hour["time"].toString(),
-                      style: TextStyle(
-                        color: isEmergency
-                            ? Colors.red
-                            : (isDarkMode
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600]),
-                        fontWeight: isEmergency
-                            ? FontWeight.bold
-                            : FontWeight.w500,
+                      const SizedBox(height: 4),
+                      Text(
+                        contact["value"] as String,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _build24x7Banner(BuildContext context, bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Colors.green.withValues(alpha: 0.2),
+            Colors.teal.withValues(alpha: 0.2),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.green.withValues(alpha: 0.3),
+          width: 2,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.access_time,
+              color: isDarkMode ? Colors.green[300] : Colors.green[700],
+              size: 32,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Open 24/7",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: isDarkMode ? Colors.green[300] : Colors.green[700],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "This hospital operates around the clock, every day of the year",
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOperatingHours(BuildContext context, bool isDarkMode, hospital) {
+    final Map<String, dynamic> operatingHours = hospital.operatingHours ?? {};
+
+    if (operatingHours.isEmpty) {
+      return EmptyField(
+        isDarkMode: isDarkMode,
+        value: 'Operating Hours not available',
+      );
+    }
+
+    // Get current day for highlighting
+    final now = DateTime.now();
+    final currentDay = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ][now.weekday - 1];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: operatingHours.entries.map((entry) {
+          final day = entry.key;
+          final data = entry.value as Map<String, dynamic>;
+          final isOpen = data['isOpen'] as bool? ?? false;
+          final startTime = data['start'] as String? ?? '';
+          final endTime = data['end'] as String? ?? '';
+          final isToday = day == currentDay;
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isToday
+                  ? (isDarkMode
+                        ? Colors.blue.withValues(alpha: 0.15)
+                        : Colors.blue.withValues(alpha: 0.08))
+                  : (isDarkMode ? Colors.grey[800] : Colors.grey[50]),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isToday
+                    ? Colors.blue.withValues(alpha: 0.4)
+                    : (isDarkMode ? Colors.grey[700]! : Colors.grey[200]!),
+                width: isToday ? 1.5 : 1,
               ),
-            ],
+            ),
+            child: Row(
+              children: [
+                // Day indicator dot
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: isToday
+                        ? Colors.blue
+                        : (isOpen ? Colors.green : Colors.red),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Day name
+                SizedBox(
+                  width: 85,
+                  child: Text(
+                    day,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: isToday ? FontWeight.bold : FontWeight.w600,
+                      color: isToday
+                          ? (isDarkMode ? Colors.blue[300] : Colors.blue[700])
+                          : (isDarkMode ? Colors.white : Colors.black),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                // Status badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isOpen
+                        ? Colors.green.withValues(alpha: 0.15)
+                        : Colors.red.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isOpen
+                          ? Colors.green.withValues(alpha: 0.3)
+                          : Colors.red.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    isOpen ? 'Open' : 'Closed',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isOpen
+                          ? (isDarkMode ? Colors.green[300] : Colors.green[700])
+                          : (isDarkMode ? Colors.red[300] : Colors.red[700]),
+                    ),
+                  ),
+                ),
+
+                const Spacer(),
+
+                // Time
+                if (isOpen)
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.access_time,
+                        size: 14,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '$startTime - $endTime',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: isDarkMode
+                              ? Colors.grey[300]
+                              : Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Text(
+                    'Closed',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isDarkMode ? Colors.grey[500] : Colors.grey[500],
+                    ),
+                  ),
+              ],
+            ),
           );
         }).toList(),
       ),
@@ -636,190 +910,123 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
     BuildContext context,
     bool isMobile,
     bool isDarkMode,
+    hospital,
   ) {
-    final services = [
-      {"icon": Icons.emergency, "label": "Emergency Care", "color": Colors.red},
-      {"icon": Icons.healing, "label": "ICU", "color": Colors.orange},
-      {"icon": Icons.child_care, "label": "Maternity", "color": Colors.pink},
-      {"icon": Icons.science, "label": "Laboratory", "color": Colors.blue},
-      {"icon": Icons.medication, "label": "Pharmacy", "color": Colors.green},
-      {"icon": Icons.local_parking, "label": "Parking", "color": Colors.purple},
-      {"icon": Icons.restaurant, "label": "Cafeteria", "color": Colors.brown},
-      {"icon": Icons.wifi, "label": "Free WiFi", "color": Colors.cyan},
-    ];
+    final List<String> facilities = List<String>.from(hospital.facilities);
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isMobile ? 4 : 8,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1,
+    if (facilities.isEmpty) {
+      return EmptyField(
+        isDarkMode: isDarkMode,
+        value: 'Services not available',
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
+        ),
       ),
-      itemCount: services.length,
-      itemBuilder: (context, index) {
-        final service = services[index];
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isDarkMode ? Colors.grey[850] : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
-            ),
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isMobile ? 2 : 3,
+            childAspectRatio: 2.5,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                service["icon"] as IconData,
-                color: service["color"] as Color,
-                size: 24,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                service["label"] as String,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+          itemCount: facilities.length,
+          itemBuilder: (context, index) {
+            final String facilityName = facilities[index];
+
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.purple.withValues(alpha: 0.1),
+                    Colors.pink.withValues(alpha: 0.1),
+                  ],
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.purple.withValues(alpha: 0.3)),
               ),
-            ],
-          ),
-        );
-      },
+              child: Row(
+                children: [
+                  Icon(
+                    getFacilityIcon(facilityName),
+                    size: 18,
+                    color: isDarkMode ? Colors.purple[300] : Colors.purple[700],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      facilityName,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDarkMode
+                            ? Colors.purple[300]
+                            : Colors.purple[700],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 
-  Widget _buildDepartments(
+  Widget _buildGallery(
     BuildContext context,
     bool isMobile,
     bool isDarkMode,
+    hospital,
   ) {
-    final departments = [
-      {"name": "Cardiology", "icon": Icons.favorite, "color": Colors.red},
-      {"name": "Neurology", "icon": Icons.psychology, "color": Colors.purple},
-      {
-        "name": "Orthopedics",
-        "icon": Icons.accessibility_new,
-        "color": Colors.blue,
-      },
-      {"name": "Pediatrics", "icon": Icons.child_care, "color": Colors.pink},
-      {"name": "Oncology", "icon": Icons.healing, "color": Colors.orange},
-      {"name": "Radiology", "icon": Icons.camera_alt, "color": Colors.cyan},
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isMobile ? 2 : 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 2.5,
-      ),
-      itemCount: departments.length,
-      itemBuilder: (context, index) {
-        final dept = departments[index];
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDarkMode ? Colors.grey[850] : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
-            ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: (dept["color"] as Color).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  dept["icon"] as IconData,
-                  color: dept["color"] as Color,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  dept["name"] as String,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildGallery(BuildContext context, bool isMobile, bool isDarkMode) {
+    if (hospital.hospitalImages == null || hospital.hospitalImages!.isEmpty) {
+      return EmptyField(isDarkMode: isDarkMode, value: 'Gallary not available');
+    }
     return SizedBox(
-      height: 120,
+      height: 200,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: 6,
+        itemCount: images.length,
         itemBuilder: (context, index) {
-          return Padding(
-            padding: EdgeInsets.only(right: 12, left: index == 0 ? 0 : 0),
-            child: Container(
-              width: 160,
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-                ),
+          return Container(
+            width: 280,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Icon(
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                images[index],
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: isDarkMode ? Colors.grey[850] : Colors.grey[200],
+                    child: Icon(
                       Icons.image,
-                      size: 50,
-                      color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
+                      size: 60,
+                      color: isDarkMode ? Colors.grey[700] : Colors.grey[400],
                     ),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.5),
-                          ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 8,
-                      left: 8,
-                      right: 8,
-                      child: Text(
-                        "Photo ${index + 1}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           );
@@ -828,7 +1035,13 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
     );
   }
 
-  Widget _buildReviewsSection(BuildContext context, bool isDarkMode) {
+  Widget _buildReviewsSection(BuildContext context, bool isDarkMode, hospital) {
+    final double rating = (hospital?.rating ?? 0.0).clamp(0.0, 5.0);
+    final int reviewCount = hospital?.totalReviews ?? 0;
+
+    if (hospital.rating == null || hospital.rating.isEmpty) {
+      return EmptyField(isDarkMode: isDarkMode, value: 'Reviews not available');
+    }
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -842,67 +1055,45 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
         children: [
           Row(
             children: [
-              Column(
+              Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Text(
+                    rating.toStringAsFixed(1),
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        "4.8",
+                      buildRatingStars(rating, size: 16),
+                      const SizedBox(height: 4),
+                      Text(
+                        "$reviewCount reviews",
                         style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: isDarkMode
+                              ? Colors.grey[400]
+                              : Colors.grey[600],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: List.generate(
-                              5,
-                              (index) => Icon(
-                                index < 4 ? Icons.star : Icons.star_half,
-                                color: Colors.amber,
-                                size: 16,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "1,234 reviews",
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDarkMode
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
                 ],
               ),
               const Spacer(),
-              TextButton(
-                onPressed: () {
-                  //  reviews
-                },
-                child: const Text("View All"),
-              ),
+              TextButton(onPressed: () {}, child: const Text("View All")),
             ],
           ),
           const SizedBox(height: 16),
-          _buildRatingBar("5 ★", 0.7, isDarkMode),
-          const SizedBox(height: 8),
-          _buildRatingBar("4 ★", 0.2, isDarkMode),
-          const SizedBox(height: 8),
-          _buildRatingBar("3 ★", 0.05, isDarkMode),
-          const SizedBox(height: 8),
-          _buildRatingBar("2 ★", 0.03, isDarkMode),
-          const SizedBox(height: 8),
-          _buildRatingBar("1 ★", 0.02, isDarkMode),
+          _buildRatingBar("5 ★", rating / 5, isDarkMode),
+          _buildRatingBar("4 ★", rating / 6, isDarkMode),
+          _buildRatingBar("3 ★", rating / 7, isDarkMode),
+          _buildRatingBar("2 ★", rating / 8, isDarkMode),
+          _buildRatingBar("1 ★", rating / 9, isDarkMode),
         ],
       ),
     );
@@ -949,15 +1140,18 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
     );
   }
 
-  Widget _buildAccreditations(BuildContext context, bool isDarkMode) {
-    final accreditations = [
-      "JCI Accredited",
-      "NABH Certified",
-      "ISO 9001:2015",
-      "Green OT Certified",
-    ];
+  Widget _buildAccreditations(BuildContext context, bool isDarkMode, hospital) {
+    final List<dynamic> accreditations = hospital.accreditations ?? [];
+
+    if (accreditations.isEmpty) {
+      return EmptyField(
+        isDarkMode: isDarkMode,
+        value: 'Accreditations not available',
+      );
+    }
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[850] : Colors.white,
@@ -969,7 +1163,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
-        children: accreditations.map((acc) {
+        children: accreditations.map<Widget>((acc) {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -988,7 +1182,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
                 const Icon(Icons.verified, size: 16, color: Colors.blue),
                 const SizedBox(width: 8),
                 Text(
-                  acc,
+                  acc.toString(), // 👈 ensure it's a String
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -1007,6 +1201,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
     BuildContext context,
     bool isMobile,
     bool isDarkMode,
+    hospital,
   ) {
     return Column(
       children: [
@@ -1015,15 +1210,26 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
           height: 56,
           child: ElevatedButton.icon(
             onPressed: () {
-              //  profile
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => EditHospitalProfileScreen(),
+                ),
+              );
             },
-            icon: const Icon(Icons.edit),
-            label: const Text(
+            icon: Icon(Icons.edit, color: Colors.black),
+            label: Text(
               "Edit Hospital Profile",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: isDarkMode
+                  ? DarkThemeColors.buttonPrimary
+                  : LightThemeColors.buttonPrimary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -1036,7 +1242,15 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () {
-                  //
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DoctorManagementScreen(
+                        hospitalAffiliation: hospital.displayName,
+                        hospitalId: hospital?.id,
+                      ),
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.medical_services, size: 20),
                 label: const Text("Manage Doctors"),

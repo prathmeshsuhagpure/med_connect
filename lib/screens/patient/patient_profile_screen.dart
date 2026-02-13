@@ -3,7 +3,6 @@ import 'package:med_connect/models/user/patient_model.dart';
 import 'package:med_connect/screens/patient/edit_patient_profile_screen.dart';
 import 'package:med_connect/widgets/btm_nav_bar.dart';
 import 'package:provider/provider.dart';
-
 import '../../providers/authentication_provider.dart';
 
 class PatientProfileScreen extends StatefulWidget {
@@ -57,7 +56,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.email_outlined,
                             "Email",
-                            patient.email,
+                            patient.email ?? "",
                             isDarkMode,
                             onTap: () {},
                           ),
@@ -65,7 +64,7 @@ class _PatientProfileScreenState extends State<PatientProfileScreen> {
                             context,
                             Icons.phone_outlined,
                             "Phone Number",
-                            patient.phoneNumber,
+                            patient.phoneNumber ?? "",
                             isDarkMode,
                             onTap: () {},
                           ),

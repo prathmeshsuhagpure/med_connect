@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../models/user/doctor_model.dart';
+import '../../providers/doctor_provider.dart';
 
 class AddDoctorScreen extends StatefulWidget {
-  const AddDoctorScreen({super.key});
+  final String? hospitalId;
+  final String? hospitalAffiliation;
+
+  const AddDoctorScreen({super.key, this.hospitalId, this.hospitalAffiliation});
 
   @override
   State<AddDoctorScreen> createState() => _AddDoctorScreenState();
@@ -65,7 +72,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
 
   final List<String> _genders = ["Male", "Female", "Other"];
 
-  bool _isActive = true;
+  bool _isAvailable = true;
   bool _isLoading = false;
 
   @override
@@ -121,13 +128,21 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
               const SizedBox(height: 32),
 
               // Contact Information
-              _buildSectionTitle(context, "Contact Information", Icons.contact_phone),
+              _buildSectionTitle(
+                context,
+                "Contact Information",
+                Icons.contact_phone,
+              ),
               const SizedBox(height: 16),
               _buildContactSection(isDarkMode),
               const SizedBox(height: 32),
 
               // Availability Schedule
-              _buildSectionTitle(context, "Availability Schedule", Icons.calendar_today),
+              _buildSectionTitle(
+                context,
+                "Availability Schedule",
+                Icons.calendar_today,
+              ),
               const SizedBox(height: 16),
               _buildAvailabilitySection(isDarkMode),
               const SizedBox(height: 32),
@@ -221,17 +236,13 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
   Widget _buildSectionTitle(BuildContext context, String title, IconData icon) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 24,
-          color: Theme.of(context).primaryColor,
-        ),
+        Icon(icon, size: 24, color: Theme.of(context).primaryColor),
         const SizedBox(width: 12),
         Text(
           title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
       ],
     );
@@ -246,11 +257,11 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
           icon: Icons.person_outline,
           isDarkMode: isDarkMode,
           validator: _requiredValidator,
-          hint: "Dr. John Smith",
         ),
         const SizedBox(height: 16),
         _buildDropdown(
           label: "Gender",
+          hint: "Select Gender",
           value: _selectedGender,
           items: _genders,
           icon: Icons.wc_outlined,
@@ -283,6 +294,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
       children: [
         _buildDropdown(
           label: "Specialization",
+          hint: "Select Specialization",
           value: _selectedSpecialization,
           items: _specializations,
           icon: Icons.local_hospital_outlined,
@@ -300,6 +312,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
         const SizedBox(height: 16),
         _buildDropdown(
           label: "Department",
+          hint: "Select Department",
           value: _selectedDepartment,
           items: _departments,
           icon: Icons.apartment_outlined,
@@ -432,7 +445,9 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
                     _availability[day] = selected;
                   });
                 },
-                selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                selectedColor: Theme.of(
+                  context,
+                ).primaryColor.withValues(alpha: 0.2),
                 checkmarkColor: Theme.of(context).primaryColor,
                 labelStyle: TextStyle(
                   fontWeight: FontWeight.w600,
@@ -461,7 +476,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
                   "Start Time",
                   _startTime,
                   isDarkMode,
-                      (time) {
+                  (time) {
                     setState(() => _startTime = time);
                   },
                 ),
@@ -473,7 +488,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
                   "End Time",
                   _endTime,
                   isDarkMode,
-                      (time) {
+                  (time) {
                     setState(() => _endTime = time);
                   },
                 ),
@@ -486,12 +501,12 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
   }
 
   Widget _buildTimeSelector(
-      BuildContext context,
-      String label,
-      TimeOfDay time,
-      bool isDarkMode,
-      Function(TimeOfDay) onTimeSelected,
-      ) {
+    BuildContext context,
+    String label,
+    TimeOfDay time,
+    bool isDarkMode,
+    Function(TimeOfDay) onTimeSelected,
+  ) {
     return InkWell(
       onTap: () async {
         final TimeOfDay? picked = await showTimePicker(
@@ -569,8 +584,8 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
       child: Row(
         children: [
           Icon(
-            _isActive ? Icons.check_circle : Icons.cancel,
-            color: _isActive ? Colors.green : Colors.red,
+            _isAvailable ? Icons.check_circle : Icons.cancel,
+            color: _isAvailable ? Colors.green : Colors.red,
             size: 28,
           ),
           const SizedBox(width: 16),
@@ -579,16 +594,16 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _isActive ? "Active" : "Inactive",
+                  _isAvailable ? "Available" : "Unavailable",
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: _isActive ? Colors.green : Colors.red,
+                    color: _isAvailable ? Colors.green : Colors.red,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _isActive
+                  _isAvailable
                       ? "Doctor will be available for appointments"
                       : "Doctor will not be available for appointments",
                   style: TextStyle(
@@ -600,11 +615,11 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
             ),
           ),
           Switch(
-            value: _isActive,
+            value: _isAvailable,
             onChanged: (value) {
-              setState(() => _isActive = value);
+              setState(() => _isAvailable = value);
             },
-            activeColor: Colors.green,
+            activeThumbColor: Colors.green,
           ),
         ],
       ),
@@ -632,9 +647,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
         prefixIcon: Icon(icon),
         filled: true,
         fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
@@ -666,20 +679,20 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
     required List<String> items,
     required IconData icon,
     required bool isDarkMode,
+    required String hint,
     required ValueChanged<String?> onChanged,
     String? Function(String?)? validator,
   }) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
+      hint: Text(hint),
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
         filled: true,
         fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
@@ -699,10 +712,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
         ),
       ),
       items: items
-          .map((item) => DropdownMenuItem(
-        value: item,
-        child: Text(item),
-      ))
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
           .toList(),
       onChanged: onChanged,
     );
@@ -724,27 +734,24 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
         ),
         child: _isLoading
             ? const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        )
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
             : const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle_outline, size: 24),
-            SizedBox(width: 12),
-            Text(
-              "Add Doctor",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_outline, size: 24),
+                  SizedBox(width: 12),
+                  Text(
+                    "Add Doctor",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -774,9 +781,9 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
                 const SizedBox(height: 24),
                 Text(
                   "Choose Profile Picture",
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 24),
                 _buildImageOption(
@@ -784,7 +791,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
                   Icons.camera_alt,
                   "Take Photo",
                   isDarkMode,
-                      () {
+                  () {
                     Navigator.pop(context);
                     // TODO: Implement camera
                   },
@@ -795,7 +802,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
                   Icons.photo_library,
                   "Choose from Gallery",
                   isDarkMode,
-                      () {
+                  () {
                     Navigator.pop(context);
                     // TODO: Implement gallery picker
                   },
@@ -809,12 +816,12 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
   }
 
   Widget _buildImageOption(
-      BuildContext context,
-      IconData icon,
-      String label,
-      bool isDarkMode,
-      VoidCallback onTap,
-      ) {
+    BuildContext context,
+    IconData icon,
+    String label,
+    bool isDarkMode,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -844,10 +851,7 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
             const SizedBox(width: 16),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -883,72 +887,82 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
     return null;
   }
 
-  void _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      // Check if at least one day is selected
-      if (!_availability.values.any((isSelected) => isSelected)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.error_outline, color: Colors.white),
-                SizedBox(width: 12),
-                Text("Please select at least one working day"),
-              ],
-            ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    if (!_availability.values.any((isSelected) => isSelected)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 12),
+              Text("Please select at least one working day"),
+            ],
           ),
-        );
-        return;
-      }
-
-      setState(() => _isLoading = true);
-
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
-
-      setState(() => _isLoading = false);
-
-      if (mounted) {
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 12),
-                Text(
-                  "Dr. ${_nameController.text} added successfully!",
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            action: SnackBarAction(
-              label: "View",
-              textColor: Colors.white,
-              onPressed: () {
-                // TODO: Navigate to doctor details
-              },
-            ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        );
+        ),
+      );
+      return;
+    }
 
-        // Navigate back
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            Navigator.pop(context);
-          }
-        });
+    final doctorProvider = context.read<DoctorProvider>();
+
+    setState(() => _isLoading = true);
+    try {
+      final doctor = DoctorModel(
+        name: _nameController.text.trim(),
+        gender: _selectedGender!,
+        bio: _bioController.text.trim(),
+        specialization: _selectedSpecialization!,
+        department: _selectedDepartment!,
+        qualification: _qualificationController.text.trim(),
+        licenseNumber: _licenseController.text.trim(),
+        experience: _experienceController.text.trim(),
+        consultationFee: _feeController.text.trim(),
+        email: _emailController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        address: _addressController.text.trim(),
+        availableHours: _availability.entries
+            .where((entry) => entry.value)
+            .map((entry) => entry.key)
+            .join(", "),
+        isAvailable: _isAvailable,
+        id: '',
+        hospitalId: widget.hospitalId,
+        hospitalAffiliation: widget.hospitalAffiliation,
+      );
+
+      final success = await doctorProvider.addDoctor(doctor, null);
+      if (!success) {
+        throw Exception('Failed to add doctor');
       }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Dr. ${doctor.name} added successfully!",
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 }

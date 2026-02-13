@@ -233,7 +233,6 @@ class AuthenticationProvider extends ChangeNotifier {
     }
   }
 
-  /// Update Profile
   Future<bool> updateProfile(Map<String, dynamic> profileData) async {
     try {
       _isLoading = true;
@@ -274,7 +273,7 @@ class AuthenticationProvider extends ChangeNotifier {
     try {
       await _apiService.logout();
     } catch (e) {
-      print('Backend logout error: $e');
+      throw Exception("Backend logout error: $e");
     }
 
     _token = null;
@@ -308,7 +307,7 @@ class AuthenticationProvider extends ChangeNotifier {
               final userData = jsonDecode(userDataString);
               _currentUser = UserFactory.fromJson(userData);
             } catch (e) {
-              print('Error parsing user data: $e');
+              throw Exception("Error parsing user data: $e");
             }
           }
         } else {
@@ -318,8 +317,9 @@ class AuthenticationProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('Error loading stored auth: $e');
       await logout();
+      throw Exception("Error loading stored auth: $e");
+
     }
   }
 
@@ -339,11 +339,9 @@ class AuthenticationProvider extends ChangeNotifier {
         }
         return true;
       } else {
-        print('Token validation failed: ${response['message']}');
         return false;
       }
     } catch (e) {
-      print('Token validation error: $e');
       return false;
     }
   }
@@ -373,7 +371,6 @@ class AuthenticationProvider extends ChangeNotifier {
       }
     } catch (e) {
       _error = e.toString();
-      print('Error fetching user profile: $e');
       notifyListeners();
       return false;
     } finally {
@@ -384,7 +381,6 @@ class AuthenticationProvider extends ChangeNotifier {
 
   Future<String?> uploadProfileImage(File imageFile) async {
     if (_token == null) {
-      print("No token available");
       return null;
     }
     return await _apiService.uploadProfileImage(imageFile, _token!);

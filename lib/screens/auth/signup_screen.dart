@@ -153,8 +153,6 @@ class _SignupScreenState extends State<SignupScreen> {
           Navigator.pushReplacementNamed(context, '/doctor_home');
         }
       } else {
-        // Show error message
-        print("Error: ${result?['message']}");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result?['message'] ?? 'Signup failed'),
@@ -167,7 +165,6 @@ class _SignupScreenState extends State<SignupScreen> {
 
       setState(() => _isLoading = false);
 
-      print("E: ${e.toString()}");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),

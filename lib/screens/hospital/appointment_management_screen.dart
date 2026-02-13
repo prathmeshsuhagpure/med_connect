@@ -14,7 +14,6 @@ class _AppointmentManagementScreenState
   final TextEditingController _searchController = TextEditingController();
 
   String _selectedFilter = "All";
-  String _selectedDate = "Today";
   bool _isSearching = false;
 
   @override
@@ -967,7 +966,6 @@ class _AppointmentManagementScreenState
     );
     if (picked != null) {
       setState(() {
-        _selectedDate = "${picked.day}/${picked.month}/${picked.year}";
       });
     }
   }

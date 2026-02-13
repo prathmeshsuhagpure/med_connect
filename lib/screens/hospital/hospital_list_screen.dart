@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:med_connect/providers/hospital_provider.dart';
+import '../../models/user/hospital_model.dart';
+import '../appointments/book_appointment_screen.dart';
+import 'hospital_detail_screen.dart';
 
 class HospitalListScreen extends StatefulWidget {
   const HospitalListScreen({super.key});
@@ -13,7 +18,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
   late TabController _tabController;
 
   String _selectedFilter = "All";
-  String _selectedSort = "Distance";
+  String _selectedSort = "Rating";
   bool _isMapView = false;
   final Set<String> _favorites = {};
 
@@ -21,6 +26,14 @@ class _HospitalListScreenState extends State<HospitalListScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadHospitals();
+    });
+  }
+
+  void _loadHospitals() async {
+    final hospitalProvider = context.read<HospitalProvider>();
+    await hospitalProvider.loadHospitals(limit: 50);
   }
 
   @override
@@ -28,6 +41,61 @@ class _HospitalListScreenState extends State<HospitalListScreen>
     _searchController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  List<HospitalModel> _getFilteredHospitals(HospitalProvider provider) {
+    List<HospitalModel> hospitals = provider.hospitals;
+
+    // Apply search
+    if (_searchController.text.isNotEmpty) {
+      final query = _searchController.text.toLowerCase();
+      hospitals = hospitals.where((hospital) {
+        return hospital.name.toLowerCase().contains(query) ||
+            hospital.displayName.toLowerCase().contains(query) ||
+            (hospital.city?.toLowerCase().contains(query) ?? false) ||
+            (hospital.state?.toLowerCase().contains(query) ?? false);
+      }).toList();
+    }
+
+    // Apply filters
+    switch (_selectedFilter) {
+      case "Emergency":
+        hospitals = hospitals.where((h) => h.ambulanceService == true).toList();
+        break;
+      case "24/7":
+        hospitals = hospitals.where((h) => h.is24x7 == true).toList();
+        break;
+      case "Verified":
+        hospitals = hospitals.where((h) => h.isVerified == true).toList();
+        break;
+      case "Top Rated":
+        hospitals = hospitals.where((h) => (h.rating ?? 0) >= 4.0).toList();
+        break;
+      case "Favorites":
+        hospitals = hospitals.where((h) => _favorites.contains(h.id)).toList();
+        break;
+      default:
+        // "All" - no additional filter
+        break;
+    }
+
+    // Apply sorting
+    switch (_selectedSort) {
+      case "Rating":
+        hospitals.sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
+        break;
+      case "Name":
+        hospitals.sort((a, b) => a.name.compareTo(b.name));
+        break;
+      case "Reviews":
+        hospitals.sort(
+          (a, b) => (b.totalReviews ?? 0).compareTo(a.totalReviews ?? 0),
+        );
+        break;
+      // "Distance" would require location data
+    }
+
+    return hospitals;
   }
 
   @override
@@ -77,6 +145,18 @@ class _HospitalListScreenState extends State<HospitalListScreen>
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
+              onTap: (index) {
+                setState(() {
+                  if (index == 0) {
+                    _selectedFilter = "All";
+                  } else if (index == 1) {
+                    // TODO: Load nearby hospitals when location is available
+                    _selectedFilter = "All";
+                  } else if (index == 2) {
+                    _selectedFilter = "Favorites";
+                  }
+                });
+              },
               tabs: const [
                 Tab(text: "All"),
                 Tab(text: "Nearby"),
@@ -86,35 +166,30 @@ class _HospitalListScreenState extends State<HospitalListScreen>
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // Search and Quick Filters
-          _buildSearchAndFilters(isDarkMode),
+      body: Consumer<HospitalProvider>(
+        builder: (context, hospitalProvider, child) {
+          if (hospitalProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return Column(
+            children: [
+              // Search and Quick Filters
+              _buildSearchAndFilters(isDarkMode),
 
-          // Content
-          Expanded(
-            child: _isMapView
-                ? _buildMapView(isDarkMode)
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildHospitalList(context, "All", isMobile, isDarkMode),
-                      _buildHospitalList(
+              // Content
+              Expanded(
+                child: _isMapView
+                    ? _buildMapView(isDarkMode)
+                    : _buildHospitalList(
                         context,
-                        "Nearby",
                         isMobile,
                         isDarkMode,
+                        hospitalProvider,
                       ),
-                      _buildHospitalList(
-                        context,
-                        "Favorites",
-                        isMobile,
-                        isDarkMode,
-                      ),
-                    ],
-                  ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -190,6 +265,12 @@ class _HospitalListScreenState extends State<HospitalListScreen>
       onSelected: (selected) {
         setState(() {
           _selectedFilter = selected ? label : "All";
+          // Update tab controller if needed
+          if (_selectedFilter == "Favorites") {
+            _tabController.animateTo(2);
+          } else if (_selectedFilter == "All") {
+            _tabController.animateTo(0);
+          }
         });
       },
       selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
@@ -206,20 +287,19 @@ class _HospitalListScreenState extends State<HospitalListScreen>
 
   Widget _buildHospitalList(
     BuildContext context,
-    String filter,
     bool isMobile,
     bool isDarkMode,
+    HospitalProvider hospitalProvider,
   ) {
-    final hospitals = _getHospitals(filter);
+    final hospitals = _getFilteredHospitals(hospitalProvider);
 
     if (hospitals.isEmpty) {
-      return _buildEmptyState(context, filter, isDarkMode);
+      return _buildEmptyState(context, _selectedFilter, isDarkMode);
     }
 
     return RefreshIndicator(
       onRefresh: () async {
-        // TODO: Implement refresh logic
-        await Future.delayed(const Duration(seconds: 1));
+        await hospitalProvider.loadHospitals();
       },
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
@@ -234,7 +314,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
 
   Widget _buildHospitalCard(
     BuildContext context,
-    _HospitalData hospital,
+    HospitalModel hospital,
     bool isDarkMode,
   ) {
     final isFavorite = _favorites.contains(hospital.id);
@@ -242,7 +322,13 @@ class _HospitalListScreenState extends State<HospitalListScreen>
     return InkWell(
       borderRadius: BorderRadius.circular(20),
       onTap: () {
-        // TODO: Navigate to HospitalDetailsScreen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                HospitalDetailsScreen(hospitalId: hospital.id!),
+          ),
+        );
       },
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -267,7 +353,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
             const SizedBox(height: 12),
             _buildHospitalInfo(hospital, isDarkMode),
             const SizedBox(height: 14),
-            _buildSpecialties(hospital.specialties, isDarkMode),
+            _buildSpecialties(hospital, isDarkMode),
             const SizedBox(height: 16),
             _buildActionButtons(hospital, isDarkMode),
           ],
@@ -277,7 +363,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
   }
 
   Widget _buildHospitalHeader(
-    _HospitalData hospital,
+    HospitalModel hospital,
     bool isFavorite,
     bool isDarkMode,
   ) {
@@ -288,14 +374,33 @@ class _HospitalListScreenState extends State<HospitalListScreen>
           width: 60,
           height: 60,
           decoration: BoxDecoration(
-            color: hospital.color.withValues(alpha: 0.1),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: hospital.color.withValues(alpha: 0.3),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
               width: 1.5,
             ),
           ),
-          child: Icon(Icons.local_hospital, color: hospital.color, size: 32),
+          child: hospital.logo != null && hospital.logo!.isNotEmpty
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.network(
+                    hospital.logo!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.local_hospital,
+                        color: Theme.of(context).primaryColor,
+                        size: 32,
+                      );
+                    },
+                  ),
+                )
+              : Icon(
+                  Icons.local_hospital,
+                  color: Theme.of(context).primaryColor,
+                  size: 32,
+                ),
         ),
         const SizedBox(width: 14),
 
@@ -305,7 +410,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                hospital.name,
+                hospital.displayName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -319,10 +424,10 @@ class _HospitalListScreenState extends State<HospitalListScreen>
                   const Icon(Icons.star, color: Colors.amber, size: 16),
                   const SizedBox(width: 4),
                   Text(
-                    "${hospital.rating} (${hospital.reviews})",
+                    "${(hospital.rating ?? 0).toStringAsFixed(1)} (${hospital.totalReviews ?? 0} reviews)",
                     style: const TextStyle(fontSize: 13),
                   ),
-                  if (hospital.isVerified) ...[
+                  if (hospital.isVerified == true) ...[
                     const SizedBox(width: 8),
                     const Icon(Icons.verified, color: Colors.blue, size: 16),
                   ],
@@ -339,7 +444,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
               if (isFavorite) {
                 _favorites.remove(hospital.id);
               } else {
-                _favorites.add(hospital.id);
+                _favorites.add(hospital.id!);
               }
             });
           },
@@ -352,7 +457,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
     );
   }
 
-  Widget _buildHospitalInfo(_HospitalData hospital, bool isDarkMode) {
+  Widget _buildHospitalInfo(HospitalModel hospital, bool isDarkMode) {
     return Column(
       children: [
         // Location
@@ -366,7 +471,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
             const SizedBox(width: 6),
             Expanded(
               child: Text(
-                "${hospital.address} • ${hospital.distance}",
+                "${hospital.address ?? 'N/A'}, ${hospital.city ?? 'N/A'}, ${hospital.state ?? 'N/A'}",
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -379,18 +484,18 @@ class _HospitalListScreenState extends State<HospitalListScreen>
         ),
         const SizedBox(height: 8),
 
-        // Additional Info
+        // Type and Additional Info
         Row(
           children: [
             _buildInfoChip(
-              hospital.isOpen ? "Open Now" : "Closed",
-              hospital.isOpen ? Colors.green : Colors.red,
-              Icons.access_time,
+              hospital.type ?? "Hospital",
+              Theme.of(context).primaryColor,
+              Icons.business,
             ),
             const SizedBox(width: 8),
-            if (hospital.isEmergency)
+            if (hospital.ambulanceService == true)
               _buildInfoChip("Emergency", Colors.red, Icons.emergency),
-            if (hospital.is24x7) ...[
+            if (hospital.is24x7 == true) ...[
               const SizedBox(width: 8),
               _buildInfoChip("24/7", Colors.blue, Icons.watch_later),
             ],
@@ -426,11 +531,17 @@ class _HospitalListScreenState extends State<HospitalListScreen>
     );
   }
 
-  Widget _buildSpecialties(List<String> specialties, bool isDarkMode) {
+  Widget _buildSpecialties(HospitalModel hospital, bool isDarkMode) {
+    final departments = hospital.departments ?? [];
+
+    if (departments.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: specialties.take(4).map((spec) {
+      children: departments.take(4).map((dept) {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -440,7 +551,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
-            spec,
+            dept,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -454,14 +565,12 @@ class _HospitalListScreenState extends State<HospitalListScreen>
     );
   }
 
-  Widget _buildActionButtons(_HospitalData hospital, bool isDarkMode) {
+  Widget _buildActionButtons(HospitalModel hospital, bool isDarkMode) {
     return Row(
       children: [
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {
-              // TODO: Make call
-            },
+            onPressed: () {},
             icon: const Icon(Icons.phone, size: 18),
             label: const Text("Call"),
             style: OutlinedButton.styleFrom(
@@ -477,7 +586,14 @@ class _HospitalListScreenState extends State<HospitalListScreen>
           flex: 2,
           child: ElevatedButton.icon(
             onPressed: () {
-              // TODO: Navigate to booking
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BookAppointmentScreen(
+                    hospitalId: hospital.id!,
+                  ),
+                ),
+              );
             },
             icon: const Icon(Icons.calendar_today, size: 18),
             label: const Text("Book Appointment"),
@@ -620,9 +736,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: ["Distance", "Rating", "Name", "Reviews"].map((
-                      sort,
-                    ) {
+                    children: ["Rating", "Name", "Reviews"].map((sort) {
                       final isSelected = _selectedSort == sort;
                       return ChoiceChip(
                         label: Text(sort),
@@ -697,7 +811,7 @@ class _HospitalListScreenState extends State<HospitalListScreen>
                           onPressed: () {
                             setState(() {
                               _selectedFilter = "All";
-                              _selectedSort = "Distance";
+                              _selectedSort = "Rating";
                             });
                             Navigator.pop(context);
                           },
@@ -751,134 +865,4 @@ class _HospitalListScreenState extends State<HospitalListScreen>
       checkmarkColor: Theme.of(context).primaryColor,
     );
   }
-
-  List<_HospitalData> _getHospitals(String filter) {
-    final allHospitals = [
-      _HospitalData(
-        id: "1",
-        name: "City Care Hospital",
-        address: "MG Road, Pune",
-        distance: "2.4 km",
-        rating: 4.6,
-        reviews: "1.2k",
-        specialties: ["Cardiology", "Orthopedic", "ENT", "Pediatrics"],
-        isVerified: true,
-        isOpen: true,
-        isEmergency: true,
-        is24x7: true,
-        color: Colors.blue,
-      ),
-      _HospitalData(
-        id: "2",
-        name: "Sunshine Medical Center",
-        address: "Camp Area, Pune",
-        distance: "3.8 km",
-        rating: 4.8,
-        reviews: "856",
-        specialties: ["Neurology", "Dermatology", "General Medicine"],
-        isVerified: true,
-        isOpen: true,
-        isEmergency: false,
-        is24x7: false,
-        color: Colors.orange,
-      ),
-      _HospitalData(
-        id: "3",
-        name: "Apollo Clinic",
-        address: "Koregaon Park, Pune",
-        distance: "1.2 km",
-        rating: 4.9,
-        reviews: "2.3k",
-        specialties: ["Cardiology", "Pediatrics", "Gynecology"],
-        isVerified: true,
-        isOpen: true,
-        isEmergency: true,
-        is24x7: true,
-        color: Colors.green,
-      ),
-      _HospitalData(
-        id: "4",
-        name: "HealthFirst Hospital",
-        address: "Shivaji Nagar, Pune",
-        distance: "5.1 km",
-        rating: 4.5,
-        reviews: "645",
-        specialties: ["Orthopedic", "ENT", "Dentistry"],
-        isVerified: false,
-        isOpen: false,
-        isEmergency: false,
-        is24x7: false,
-        color: Colors.purple,
-      ),
-      _HospitalData(
-        id: "5",
-        name: "Max Healthcare",
-        address: "Viman Nagar, Pune",
-        distance: "4.2 km",
-        rating: 4.7,
-        reviews: "1.8k",
-        specialties: ["Cardiology", "Neurology", "Oncology", "Surgery"],
-        isVerified: true,
-        isOpen: true,
-        isEmergency: true,
-        is24x7: true,
-        color: Colors.teal,
-      ),
-      _HospitalData(
-        id: "6",
-        name: "Care & Cure Clinic",
-        address: "FC Road, Pune",
-        distance: "3.5 km",
-        rating: 4.4,
-        reviews: "523",
-        specialties: ["General Medicine", "Pediatrics"],
-        isVerified: true,
-        isOpen: true,
-        isEmergency: false,
-        is24x7: false,
-        color: Colors.pink,
-      ),
-    ];
-
-    if (filter == "Favorites") {
-      return allHospitals.where((h) => _favorites.contains(h.id)).toList();
-    } else if (filter == "Nearby") {
-      return allHospitals.where((h) {
-        final distance = double.parse(h.distance.split(' ')[0]);
-        return distance <= 3.0;
-      }).toList();
-    }
-    return allHospitals;
-  }
-}
-
-// Helper class
-class _HospitalData {
-  final String id;
-  final String name;
-  final String address;
-  final String distance;
-  final double rating;
-  final String reviews;
-  final List<String> specialties;
-  final bool isVerified;
-  final bool isOpen;
-  final bool isEmergency;
-  final bool is24x7;
-  final Color color;
-
-  _HospitalData({
-    required this.id,
-    required this.name,
-    required this.address,
-    required this.distance,
-    required this.rating,
-    required this.reviews,
-    required this.specialties,
-    required this.isVerified,
-    required this.isOpen,
-    required this.isEmergency,
-    required this.is24x7,
-    required this.color,
-  });
 }
