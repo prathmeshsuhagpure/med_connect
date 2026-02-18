@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:med_connect/models/appointment_model.dart';
+import 'package:provider/provider.dart';
+import '../../providers/appointment_provider.dart';
+import '../../providers/authentication_provider.dart';
 
 class PatientAppointmentsScreen extends StatefulWidget {
   const PatientAppointmentsScreen({super.key});
 
   @override
-  State<PatientAppointmentsScreen> createState() => PatientAppointmentsScreenState();
+  State<PatientAppointmentsScreen> createState() =>
+      PatientAppointmentsScreenState();
 }
 
 class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
@@ -15,6 +21,22 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAppointments();
+    });
+  }
+
+  void _loadAppointments() {
+    final authProvider =
+    Provider.of<AuthenticationProvider>(context, listen: false);
+    final appointmentProvider =
+    Provider.of<AppointmentProvider>(context, listen: false);
+    final patientId = authProvider.patient?.id;
+
+    if (patientId != null) {
+      appointmentProvider.loadAppointmentsByPatient(patientId);
+    }
   }
 
   @override
@@ -73,65 +95,63 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
           ),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildUpcomingTab(context, isMobile, isDarkMode),
-          _buildPastTab(context, isMobile, isDarkMode),
-          _buildCancelledTab(context, isMobile, isDarkMode),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+      body: Consumer<AppointmentProvider>(
+        builder: (context, appointmentProvider, child) {
+          if (appointmentProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (appointmentProvider.error != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.error_outline,
+                      size: 64, color: Colors.red.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading appointments',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    appointmentProvider.error!,
+                    style: TextStyle(color: Colors.grey[600]),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _loadAppointments,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              _buildUpcomingTab(context, isMobile, isDarkMode,
+                  appointmentProvider.upcomingAppointments),
+              _buildPastTab(context, isMobile, isDarkMode,
+                  appointmentProvider.pastAppointments),
+              _buildCancelledTab(context, isMobile, isDarkMode,
+                  appointmentProvider.cancelledAppointments),
+            ],
+          );
         },
-        icon: const Icon(Icons.add),
-        label: const Text("Book Appointment"),
-        backgroundColor: Theme.of(context).primaryColor,
       ),
     );
   }
 
   Widget _buildUpcomingTab(
-      BuildContext context, bool isMobile, bool isDarkMode) {
-    final upcomingAppointments = [
-      _AppointmentData(
-        id: "APT001",
-        hospitalName: "City General Hospital",
-        hospitalAddress: "123 Medical Street, Downtown",
-        doctorName: "Dr. Sarah Johnson",
-        specialization: "Cardiologist",
-        date: "Today",
-        time: "10:30 AM",
-        status: "Confirmed",
-        avatarColor: Colors.blue,
-        type: "In-Person",
-      ),
-      _AppointmentData(
-        id: "APT002",
-        hospitalName: "Medical Center Plus",
-        hospitalAddress: "456 Healthcare Ave, Midtown",
-        doctorName: "Dr. Michael Brown",
-        specialization: "Orthopedic",
-        date: "Tomorrow",
-        time: "2:00 PM",
-        status: "Confirmed",
-        avatarColor: Colors.green,
-        type: "Video Consultation",
-      ),
-      _AppointmentData(
-        id: "APT003",
-        hospitalName: "Health Care Clinic",
-        hospitalAddress: "789 Wellness Road, Uptown",
-        doctorName: "Dr. Emily Davis",
-        specialization: "Dermatologist",
-        date: "Feb 10, 2026",
-        time: "11:00 AM",
-        status: "Pending",
-        avatarColor: Colors.orange,
-        type: "In-Person",
-      ),
-    ];
-
+      BuildContext context,
+      bool isMobile,
+      bool isDarkMode,
+      List<AppointmentModel> upcomingAppointments,
+      ) {
     if (upcomingAppointments.isEmpty) {
       return _buildEmptyState(
         context,
@@ -142,63 +162,34 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
-      itemCount: upcomingAppointments.length,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildUpcomingAppointmentCard(
-            context,
-            upcomingAppointments[index],
-            isMobile,
-            isDarkMode,
-          ),
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        _loadAppointments();
       },
+      child: ListView.builder(
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
+        itemCount: upcomingAppointments.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildUpcomingAppointmentCard(
+              context,
+              upcomingAppointments[index],
+              isMobile,
+              isDarkMode,
+            ),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildPastTab(BuildContext context, bool isMobile, bool isDarkMode) {
-    final pastAppointments = [
-      _AppointmentData(
-        id: "APT104",
-        hospitalName: "City General Hospital",
-        hospitalAddress: "123 Medical Street, Downtown",
-        doctorName: "Dr. Robert Wilson",
-        specialization: "General Physician",
-        date: "Feb 1, 2026",
-        time: "9:00 AM",
-        status: "Completed",
-        avatarColor: Colors.purple,
-        type: "In-Person",
-      ),
-      _AppointmentData(
-        id: "APT105",
-        hospitalName: "Wellness Hospital",
-        hospitalAddress: "321 Health Blvd, Suburb",
-        doctorName: "Dr. Lisa Anderson",
-        specialization: "Pediatrician",
-        date: "Jan 28, 2026",
-        time: "3:30 PM",
-        status: "Completed",
-        avatarColor: Colors.teal,
-        type: "Video Consultation",
-      ),
-      _AppointmentData(
-        id: "APT106",
-        hospitalName: "Medical Center Plus",
-        hospitalAddress: "456 Healthcare Ave, Midtown",
-        doctorName: "Dr. Michael Brown",
-        specialization: "Orthopedic",
-        date: "Jan 20, 2026",
-        time: "11:15 AM",
-        status: "Completed",
-        avatarColor: Colors.indigo,
-        type: "In-Person",
-      ),
-    ];
-
+  Widget _buildPastTab(
+      BuildContext context,
+      bool isMobile,
+      bool isDarkMode,
+      List<AppointmentModel> pastAppointments,
+      ) {
     if (pastAppointments.isEmpty) {
       return _buildEmptyState(
         context,
@@ -209,54 +200,34 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
-      itemCount: pastAppointments.length,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildPastAppointmentCard(
-            context,
-            pastAppointments[index],
-            isMobile,
-            isDarkMode,
-          ),
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        _loadAppointments();
       },
+      child: ListView.builder(
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
+        itemCount: pastAppointments.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildPastAppointmentCard(
+              context,
+              pastAppointments[index],
+              isMobile,
+              isDarkMode,
+            ),
+          );
+        },
+      ),
     );
   }
 
   Widget _buildCancelledTab(
-      BuildContext context, bool isMobile, bool isDarkMode) {
-    final cancelledAppointments = [
-      _AppointmentData(
-        id: "APT207",
-        hospitalName: "Health Plus Clinic",
-        hospitalAddress: "789 Wellness Road, Uptown",
-        doctorName: "Dr. James Taylor",
-        specialization: "Neurologist",
-        date: "Jan 25, 2026",
-        time: "4:00 PM",
-        status: "Cancelled by Patient",
-        avatarColor: Colors.red,
-        type: "In-Person",
-        cancellationReason: "Personal emergency",
-      ),
-      _AppointmentData(
-        id: "APT208",
-        hospitalName: "City General Hospital",
-        hospitalAddress: "123 Medical Street, Downtown",
-        doctorName: "Dr. Sarah Johnson",
-        specialization: "Cardiologist",
-        date: "Jan 15, 2026",
-        time: "10:00 AM",
-        status: "Cancelled by Hospital",
-        avatarColor: Colors.grey,
-        type: "Video Consultation",
-        cancellationReason: "Doctor unavailable",
-      ),
-    ];
-
+      BuildContext context,
+      bool isMobile,
+      bool isDarkMode,
+      List<AppointmentModel> cancelledAppointments,
+      ) {
     if (cancelledAppointments.isEmpty) {
       return _buildEmptyState(
         context,
@@ -267,29 +238,45 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
       );
     }
 
-    return ListView.builder(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
-      itemCount: cancelledAppointments.length,
-      itemBuilder: (context, index) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildCancelledAppointmentCard(
-            context,
-            cancelledAppointments[index],
-            isMobile,
-            isDarkMode,
-          ),
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        _loadAppointments();
       },
+      child: ListView.builder(
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
+        itemCount: cancelledAppointments.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildCancelledAppointmentCard(
+              context,
+              cancelledAppointments[index],
+              isMobile,
+              isDarkMode,
+            ),
+          );
+        },
+      ),
     );
   }
 
   Widget _buildUpcomingAppointmentCard(
       BuildContext context,
-      _AppointmentData appointment,
+      AppointmentModel appointment,
       bool isMobile,
       bool isDarkMode,
       ) {
+    // ✅ Format date nicely
+    final formattedDate = DateFormat('MMM d, yyyy').format(appointment.appointmentDate);
+    final isToday = DateFormat('yyyy-MM-dd').format(appointment.appointmentDate) ==
+        DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final isTomorrow = DateFormat('yyyy-MM-dd').format(appointment.appointmentDate) ==
+        DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 1)));
+
+    String dateDisplay = formattedDate;
+    if (isToday) dateDisplay = 'Today';
+    if (isTomorrow) dateDisplay = 'Tomorrow';
+
     return Container(
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[850] : Colors.white,
@@ -311,7 +298,7 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                // Header with appointment type and ID
+                // Header with appointment type and status
                 Row(
                   children: [
                     Container(
@@ -320,7 +307,7 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: appointment.type == "Video Consultation"
+                        color: appointment.appointmentType.toLowerCase().contains("video")
                             ? Colors.purple.withValues(alpha: 0.1)
                             : Colors.blue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -328,21 +315,21 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
                       child: Row(
                         children: [
                           Icon(
-                            appointment.type == "Video Consultation"
+                            appointment.appointmentType.toLowerCase().contains("video")
                                 ? Icons.videocam
                                 : Icons.local_hospital,
                             size: 14,
-                            color: appointment.type == "Video Consultation"
+                            color: appointment.appointmentType.toLowerCase().contains("video")
                                 ? Colors.purple
                                 : Colors.blue,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            appointment.type,
+                            appointment.appointmentType,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: appointment.type == "Video Consultation"
+                              color: appointment.appointmentType.toLowerCase().contains("video")
                                   ? Colors.purple
                                   : Colors.blue,
                             ),
@@ -357,17 +344,17 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: appointment.status == "Confirmed"
+                        color: appointment.status == AppointmentStatus.confirmed
                             ? Colors.green.withValues(alpha: 0.1)
                             : Colors.orange.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        appointment.status,
+                        appointment.statusDisplayText,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: appointment.status == "Confirmed"
+                          color: appointment.status == AppointmentStatus.confirmed
                               ? Colors.green
                               : Colors.orange,
                         ),
@@ -384,12 +371,12 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: appointment.avatarColor.withValues(alpha: 0.1),
+                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         Icons.person,
-                        color: appointment.avatarColor,
+                        color: Theme.of(context).primaryColor,
                         size: 32,
                       ),
                     ),
@@ -437,6 +424,7 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
                                         ? Colors.grey[400]
                                         : Colors.grey[600],
                                   ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -464,7 +452,7 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        appointment.date,
+                        dateDisplay,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Theme.of(context).primaryColor,
@@ -478,7 +466,7 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        appointment.time,
+                        appointment.appointmentTime,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Theme.of(context).primaryColor,
@@ -545,10 +533,12 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
 
   Widget _buildPastAppointmentCard(
       BuildContext context,
-      _AppointmentData appointment,
+      AppointmentModel appointment,
       bool isMobile,
       bool isDarkMode,
       ) {
+    final formattedDate = DateFormat('MMM d, yyyy').format(appointment.appointmentDate);
+
     return Container(
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[850] : Colors.white,
@@ -564,410 +554,346 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Header with completed badge
+            Row(
               children: [
-                // Header with completed badge
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.green.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            size: 14,
-                            color: Colors.green,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            appointment.status,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.green,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      "ID: ${appointment.id}",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Doctor and Hospital Info
-                Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: appointment.avatarColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.person,
-                        color: appointment.avatarColor,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            appointment.doctorName,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            appointment.specialization,
-                            style: TextStyle(
-                              color: isDarkMode
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            appointment.hospitalName,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDarkMode
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Date and Time
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.calendar_today,
-                        size: 16,
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                      const Icon(
+                        Icons.check_circle,
+                        size: 14,
+                        color: Colors.green,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
                       Text(
-                        "${appointment.date} at ${appointment.time}",
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDarkMode
-                              ? Colors.grey[300]
-                              : Colors.grey[700],
+                        appointment.statusDisplayText,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-
-          // Action Buttons
-          Divider(
-            height: 1,
-            color: isDarkMode ? Colors.grey[700] : Colors.grey[200],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      // TODO: View prescription
-                    },
-                    icon: const Icon(Icons.description, size: 18),
-                    label: const Text("View Prescription"),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).primaryColor,
-                      side: BorderSide(
-                        color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      // TODO: Book again
-                    },
-                    icon: const Icon(Icons.replay, size: 18),
-                    label: const Text("Book Again"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
+                const Spacer(),
+                Text(
+                  formattedDate,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            const SizedBox(height: 16),
 
-  Widget _buildCancelledAppointmentCard(
-      BuildContext context,
-      _AppointmentData appointment,
-      bool isMobile,
-      bool isDarkMode,
-      ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDarkMode ? Colors.grey[850] : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
+            // Doctor and Hospital Info
+            Row(
               children: [
-                // Header with cancelled badge
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.cancel,
-                            size: 14,
-                            color: Colors.red,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            "Cancelled",
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      "ID: ${appointment.id}",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Doctor and Hospital Info
-                Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        Icons.person,
-                        color: Colors.grey[600],
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            appointment.doctorName,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            appointment.specialization,
-                            style: TextStyle(
-                              color: isDarkMode
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            appointment.hospitalName,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDarkMode
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // Date, Time and Cancellation Reason
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
-                    color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
+                    color: Colors.grey.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.grey,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        appointment.doctorName,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        appointment.specialization,
+                        style: TextStyle(
+                          color:
+                          isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           Icon(
-                            Icons.calendar_today,
-                            size: 16,
+                            Icons.location_on,
+                            size: 14,
                             color: isDarkMode
                                 ? Colors.grey[400]
                                 : Colors.grey[600],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            "${appointment.date} at ${appointment.time}",
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDarkMode
-                                  ? Colors.grey[300]
-                                  : Colors.grey[700],
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              appointment.hospitalName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDarkMode
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                      if (appointment.cancellationReason != null) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              size: 16,
-                              color: Colors.red[300],
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                "Reason: ${appointment.cancellationReason}",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.red[300],
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                     ],
                   ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
 
-          // Action Button
-          Divider(
-            height: 1,
-            color: isDarkMode ? Colors.grey[700] : Colors.grey[200],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: SizedBox(
+            // Action Button
+            SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: () {
-                  // TODO: Book again with same doctor
+                  // TODO: Navigate to book again or view details
                 },
                 icon: const Icon(Icons.replay, size: 18),
                 label: const Text("Book Again"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).primaryColor,
+                  side: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCancelledAppointmentCard(
+      BuildContext context,
+      AppointmentModel appointment,
+      bool isMobile,
+      bool isDarkMode,
+      ) {
+    final formattedDate = DateFormat('MMM d, yyyy').format(appointment.appointmentDate);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with cancelled badge
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.cancel,
+                        size: 14,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        appointment.statusDisplayText,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  formattedDate,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Doctor and Hospital Info
+            Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.red,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        appointment.doctorName,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        appointment.specialization,
+                        style: TextStyle(
+                          color:
+                          isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            size: 14,
+                            color: isDarkMode
+                                ? Colors.grey[400]
+                                : Colors.grey[600],
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              appointment.hospitalName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDarkMode
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600],
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // Cancellation reason if available
+            if (appointment.cancellationReason != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        appointment.cancellationReason!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color:
+                          isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+
+            // Action Button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  // TODO: Navigate to book new appointment
+                },
+                icon: const Icon(Icons.add_circle_outline, size: 18),
+                label: const Text("Book New Appointment"),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).primaryColor,
+                  side: BorderSide(
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -985,21 +911,10 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: isDarkMode
-                    ? Colors.grey[800]
-                    : Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 80,
-                color: isDarkMode
-                    ? Colors.grey[600]
-                    : Theme.of(context).primaryColor.withValues(alpha: 0.5),
-              ),
+            Icon(
+              icon,
+              size: 80,
+              color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
             ),
             const SizedBox(height: 24),
             Text(
@@ -1018,7 +933,7 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
                 // TODO: Navigate to book appointment
@@ -1027,11 +942,8 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
               label: const Text("Book Appointment"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1122,7 +1034,7 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
 
   void _showRescheduleDialog(
       BuildContext context,
-      _AppointmentData appointment,
+      AppointmentModel appointment,
       bool isDarkMode,
       ) {
     showDialog(
@@ -1167,7 +1079,7 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                // TODO: Navigate to reschedule screen
+                // TODO: Navigate to reschedule appointment
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor,
@@ -1185,9 +1097,11 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
 
   void _showCancelDialog(
       BuildContext context,
-      _AppointmentData appointment,
+      AppointmentModel appointment,
       bool isDarkMode,
       ) {
+    final reasonController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) {
@@ -1222,6 +1136,17 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
                 "Are you sure you want to cancel your appointment with ${appointment.doctorName}?",
               ),
               const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  hintText: "Reason for cancellation (optional)",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
               Text(
                 "Cancellation charges may apply.",
                 style: TextStyle(
@@ -1243,9 +1168,30 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
               ),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Implement cancel logic
+              onPressed: () async {
+                final provider = Provider.of<AppointmentProvider>(context, listen: false);
+                final result = await provider.cancelAppointmentByPatient(
+                  appointment.id,
+                  reasonController.text.isEmpty
+                      ? "No reason provided"
+                      : reasonController.text,
+                );
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(result['message'] ?? 'Appointment cancelled'),
+                      backgroundColor:
+                      result['success'] ? Colors.green : Colors.red,
+                    ),
+                  );
+
+                  if (result['success']) {
+                    _loadAppointments();
+                  }
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -1260,33 +1206,4 @@ class PatientAppointmentsScreenState extends State<PatientAppointmentsScreen>
       },
     );
   }
-}
-
-// Helper class
-class _AppointmentData {
-  final String id;
-  final String hospitalName;
-  final String hospitalAddress;
-  final String doctorName;
-  final String specialization;
-  final String date;
-  final String time;
-  final String status;
-  final Color avatarColor;
-  final String type;
-  final String? cancellationReason;
-
-  _AppointmentData({
-    required this.id,
-    required this.hospitalName,
-    required this.hospitalAddress,
-    required this.doctorName,
-    required this.specialization,
-    required this.date,
-    required this.time,
-    required this.status,
-    required this.avatarColor,
-    required this.type,
-    this.cancellationReason,
-  });
 }

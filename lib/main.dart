@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:med_connect/providers/appointment_provider.dart';
 import 'package:med_connect/providers/authentication_provider.dart';
 import 'package:med_connect/providers/doctor_provider.dart';
 import 'package:med_connect/providers/hospital_provider.dart';
+import 'package:med_connect/providers/patient_provider.dart';
 import 'package:med_connect/screens/auth/login_screen.dart';
 import 'package:med_connect/screens/splash_screen.dart';
 import 'package:med_connect/services/api_service.dart';
+import 'package:med_connect/services/payment_service.dart';
 import 'package:med_connect/theme/theme.dart';
 import 'package:med_connect/widgets/btm_nav_bar.dart';
 import 'package:med_connect/widgets/hospital_btm_nav_bar.dart';
@@ -29,10 +32,16 @@ class MyApp extends StatelessWidget {
       providers: [
         // Base services
         Provider<ApiService>(create: (_) => ApiService()),
+        Provider<PaymentService>(
+          create: (context) =>
+              PaymentService(context.read<ApiService>()),
+        ),
         // Independent providers
         ChangeNotifierProvider(create: (_) => AuthenticationProvider()),
         ChangeNotifierProvider(create: (_) => DoctorProvider()),
         ChangeNotifierProvider(create: (_) => HospitalProvider()),
+        ChangeNotifierProvider(create: (_) => AppointmentProvider()),
+        ChangeNotifierProvider(create: (_) => PatientProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

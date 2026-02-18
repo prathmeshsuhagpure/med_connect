@@ -747,7 +747,8 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
   }
 
   Widget _buildOperatingHours(BuildContext context, bool isDarkMode, hospital) {
-    final Map<String, dynamic> operatingHours = hospital.operatingHours ?? {};
+    final Map<String, dynamic> operatingHours =
+    Map<String, dynamic>.from(hospital.operatingHours ?? {});
 
     if (operatingHours.isEmpty) {
       return EmptyField(
@@ -756,7 +757,6 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
       );
     }
 
-    // Get current day for highlighting
     final now = DateTime.now();
     final currentDay = [
       'Monday',
@@ -778,14 +778,20 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: operatingHours.entries.map((entry) {
           final day = entry.key;
-          final data = entry.value as Map<String, dynamic>;
-          final isOpen = data['isOpen'] as bool? ?? false;
-          final startTime = data['start'] as String? ?? '';
-          final endTime = data['end'] as String? ?? '';
-          final isToday = day == currentDay;
+
+          if (entry.value == null || entry.value is! Map<String, dynamic>) {
+            return const SizedBox(); // skip invalid data
+          }
+
+          final Map<String, dynamic> data = entry.value;
+
+          final bool isOpen = data['isOpen'] as bool? ?? false;
+          final String startTime = data['start'] as String? ?? '';
+          final String endTime = data['end'] as String? ?? '';
+
+          final bool isToday = day == currentDay;
 
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
@@ -793,111 +799,29 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
             decoration: BoxDecoration(
               color: isToday
                   ? (isDarkMode
-                        ? Colors.blue.withValues(alpha: 0.15)
-                        : Colors.blue.withValues(alpha: 0.08))
+                  ? Colors.blue.withValues(alpha: 0.15)
+                  : Colors.blue.withValues(alpha: 0.08))
                   : (isDarkMode ? Colors.grey[800] : Colors.grey[50]),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isToday
-                    ? Colors.blue.withValues(alpha: 0.4)
-                    : (isDarkMode ? Colors.grey[700]! : Colors.grey[200]!),
-                width: isToday ? 1.5 : 1,
-              ),
             ),
             child: Row(
               children: [
-                // Day indicator dot
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: isToday
-                        ? Colors.blue
-                        : (isOpen ? Colors.green : Colors.red),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                // Day name
                 SizedBox(
-                  width: 85,
+                  width: 90,
                   child: Text(
                     day,
                     style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: isToday ? FontWeight.bold : FontWeight.w600,
-                      color: isToday
-                          ? (isDarkMode ? Colors.blue[300] : Colors.blue[700])
-                          : (isDarkMode ? Colors.white : Colors.black),
+                      fontWeight:
+                      isToday ? FontWeight.bold : FontWeight.w600,
                     ),
                   ),
                 ),
-
-                const SizedBox(width: 8),
-
-                // Status badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isOpen
-                        ? Colors.green.withValues(alpha: 0.15)
-                        : Colors.red.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isOpen
-                          ? Colors.green.withValues(alpha: 0.3)
-                          : Colors.red.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Text(
-                    isOpen ? 'Open' : 'Closed',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isOpen
-                          ? (isDarkMode ? Colors.green[300] : Colors.green[700])
-                          : (isDarkMode ? Colors.red[300] : Colors.red[700]),
-                    ),
-                  ),
-                ),
-
                 const Spacer(),
-
-                // Time
-                if (isOpen)
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '$startTime - $endTime',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: isDarkMode
-                              ? Colors.grey[300]
-                              : Colors.grey[700],
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Text(
-                    'Closed',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isDarkMode ? Colors.grey[500] : Colors.grey[500],
-                    ),
-                  ),
+                Text(
+                  isOpen
+                      ? '$startTime - $endTime'
+                      : 'Closed',
+                ),
               ],
             ),
           );
@@ -905,6 +829,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
       ),
     );
   }
+
 
   Widget _buildServicesFacilities(
     BuildContext context,
@@ -1001,7 +926,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
       height: 200,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: images.length,
+        itemCount: hospital.hospitalImages?.length,
         itemBuilder: (context, index) {
           return Container(
             width: 280,
@@ -1015,7 +940,7 @@ class _HospitalProfileScreenState extends State<HospitalProfileScreen> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
               child: Image.network(
-                images[index],
+                hospital.hospitalImages![index],
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
                   return Container(

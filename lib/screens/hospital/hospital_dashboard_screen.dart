@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:med_connect/models/appointment_model.dart';
 import 'package:med_connect/models/user/doctor_model.dart';
 import 'package:med_connect/screens/doctor/add_doctor_screen.dart';
 import 'package:med_connect/screens/doctor/doctor_management_screen.dart';
 import 'package:med_connect/screens/hospital/appointment_management_screen.dart';
-import 'package:med_connect/screens/patient/recent_patient_screen.dart';
+import 'package:med_connect/screens/patient/patient_list_screen.dart';
 import 'package:med_connect/theme/theme.dart';
 import 'package:provider/provider.dart';
+import '../../providers/appointment_provider.dart';
 import '../../providers/authentication_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../providers/doctor_provider.dart';
@@ -27,18 +29,18 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
   void initState() {
     super.initState();
 
-    final authProvider = Provider.of<AuthenticationProvider>(
-      context,
-      listen: false,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final hospital = context.read<AuthenticationProvider>().hospital;
 
-    final doctorProvider = Provider.of<DoctorProvider>(context, listen: false);
-
-    final hospital = authProvider.hospital;
-
-    if (hospital != null) {
-      doctorProvider.loadDoctorsByHospital(hospital.id.toString(), null);
-    }
+      if (hospital != null) {
+        context.read<DoctorProvider>().loadDoctorsByHospital(
+          hospital.id.toString(),
+          null,
+        );
+      }
+      final appointment = context.read<AppointmentProvider>();
+      appointment.loadAppointmentsByHospital(hospital!.id.toString());
+    });
   }
 
   @override
@@ -100,7 +102,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => RecentPatientsScreen(),
+                        builder: (context) => PatientListScreen(),
                       ),
                     );
                   },
@@ -616,35 +618,38 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
     bool isMobile,
     bool isDarkMode,
   ) {
-    final appointments = [
-      _AppointmentData(
-        time: "09:00 AM",
-        patientName: "Sarah Johnson",
-        doctorName: "Dr. Michael Brown",
-        type: "Consultation",
-        status: "Confirmed",
-        color: Colors.green,
-      ),
-      _AppointmentData(
-        time: "10:30 AM",
-        patientName: "Robert Williams",
-        doctorName: "Dr. Emily Davis",
-        type: "Follow-up",
-        status: "Confirmed",
-        color: Colors.blue,
-      ),
-      _AppointmentData(
-        time: "02:00 PM",
-        patientName: "Lisa Anderson",
-        doctorName: "Dr. Sarah Johnson",
-        type: "Check-up",
-        status: "Pending",
-        color: Colors.orange,
-      ),
-    ];
+    final provider = context.watch<AppointmentProvider>();
+
+    final today = DateTime.now();
+
+    final todaysAppointments = provider.appointments.where((appointment) {
+      final date = appointment.appointmentDate;
+
+      return date.year == today.year &&
+          date.month == today.month &&
+          date.day == today.day;
+    }).toList();
+
+    if (provider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (todaysAppointments.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            "No appointments today",
+            style: TextStyle(
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Column(
-      children: appointments.map((appointment) {
+      children: todaysAppointments.map((appointment) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: _buildAppointmentCard(
@@ -660,109 +665,80 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
 
   Widget _buildAppointmentCard(
     BuildContext context,
-    _AppointmentData appointment,
+    AppointmentModel appointment,
     bool isMobile,
     bool isDarkMode,
   ) {
+    Color statusColor;
+
+    switch (appointment.status) {
+      case AppointmentStatus.confirmed:
+        statusColor = Colors.green;
+        break;
+      case AppointmentStatus.pending:
+        statusColor = Colors.orange;
+        break;
+      case AppointmentStatus.completed:
+        statusColor = Colors.blue;
+        break;
+      case AppointmentStatus.cancelledByPatient:
+      case AppointmentStatus.cancelledByHospital:
+        statusColor = Colors.red;
+        break;
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[850] : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Time Badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: appointment.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: appointment.color.withValues(alpha: 0.3),
-              ),
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
-              appointment.time,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: appointment.color,
-              ),
+              appointment.appointmentTime,
+              style: TextStyle(color: statusColor, fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 16),
-
-          // Appointment Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  appointment.patientName,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  appointment.patientName ?? '',
+                  style: const TextStyle(
                     fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  "with ${appointment.doctorName}",
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: appointment.status == "Confirmed"
-                            ? Colors.green.withValues(alpha: 0.1)
-                            : Colors.orange.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        appointment.status,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: appointment.status == "Confirmed"
-                              ? Colors.green
-                              : Colors.orange,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      appointment.type,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
+                Text("Dr. ${appointment.doctorName}"),
+                Text(appointment.appointmentType),
               ],
             ),
           ),
-
-          // Action Button
-          IconButton(onPressed: () {}, icon: const Icon(Icons.more_vert)),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              appointment.status.name,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ),
         ],
       ),
     );
@@ -938,9 +914,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                   : LightThemeColors.buttonPrimary,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.medical_services,
-                color: Colors.white,
-                size: 28),
+            child: Icon(Icons.medical_services, color: Colors.white, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -955,7 +929,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  doctor.specialization ??"",
+                  doctor.specialization ?? "",
                   style: TextStyle(
                     fontSize: 13,
                     color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
@@ -978,7 +952,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Colors.green
+                        color: Colors.green,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -1123,24 +1097,6 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
       ),
     );
   }
-}
-
-class _AppointmentData {
-  final String time;
-  final String patientName;
-  final String doctorName;
-  final String type;
-  final String status;
-  final Color color;
-
-  _AppointmentData({
-    required this.time,
-    required this.patientName,
-    required this.doctorName,
-    required this.type,
-    required this.status,
-    required this.color,
-  });
 }
 
 class _PatientData {

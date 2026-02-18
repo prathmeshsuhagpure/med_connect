@@ -591,6 +591,8 @@ class _HospitalListScreenState extends State<HospitalListScreen>
                 MaterialPageRoute(
                   builder: (context) => BookAppointmentScreen(
                     hospitalId: hospital.id!,
+                    hospitalName: hospital.displayName,
+                    hospitalAddress: hospital.address ?? "",
                   ),
                 ),
               );

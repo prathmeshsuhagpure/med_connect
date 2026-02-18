@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import '../../models/user/hospital_model.dart';
 import '../../providers/authentication_provider.dart';
+import '../../providers/hospital_provider.dart';
 import '../../theme/theme.dart';
 import '../../utils/helper.dart';
 import '../../widgets/loading_overlay.dart';
@@ -32,7 +34,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
   final _emergencyBedsController = TextEditingController();
 
   File? _coverImageFile;
-  List<File> _hospitalImages = [];
+  final List<File> _hospitalImages = [];
   final ImagePicker _imagePicker = ImagePicker();
 
   // Hospital Type & Services
@@ -42,6 +44,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
   bool _is24x7 = false;
   bool _hasEmergency = true;
   bool _isVerified = true;
+  bool hasAmbulance = false;
 
   // Accreditations
   final List<TextEditingController> _accreditationControllers = [];
@@ -66,8 +69,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
     _hospitalNameController.text = hospital!.displayName;
     _emailController.text = hospital.email ?? "Email";
     _phoneController.text = hospital.phoneNumber ?? "Phone Number";
-    _emergencyPhoneController.text =
-        hospital.emergencyPhoneNumber ?? "";
+    _emergencyPhoneController.text = hospital.emergencyPhoneNumber ?? "";
     _websiteController.text = hospital.website ?? "";
     _descriptionController.text = hospital.description ?? "";
     _addressController.text = hospital.address ?? "";
@@ -139,9 +141,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
 
   Future<void> _pickMultipleImages() async {
     try {
-      final pickedFiles = await _imagePicker.pickMultiImage(
-        imageQuality: 70,
-      );
+      final pickedFiles = await _imagePicker.pickMultiImage(imageQuality: 70);
 
       if (pickedFiles.isNotEmpty) {
         setState(() {
@@ -150,9 +150,9 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to select images: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to select images: $e')));
     }
   }
 
@@ -180,6 +180,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 650;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final hospital = Provider.of<AuthenticationProvider>(context).hospital;
 
     return Stack(
       children: [
@@ -200,11 +201,15 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Cover Photo Section
-                  _buildCoverPhotoSection(context, isDarkMode),
+                  _buildCoverPhotoSection(context, isDarkMode, hospital),
                   const SizedBox(height: 32),
 
                   // Hospital Images Gallery
-                  _buildSectionTitle(context, "Hospital Images", Icons.photo_library),
+                  _buildSectionTitle(
+                    context,
+                    "Hospital Images",
+                    Icons.photo_library,
+                  ),
                   const SizedBox(height: 16),
                   _buildHospitalImagesSection(isDarkMode),
                   const SizedBox(height: 32),
@@ -300,7 +305,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
     );
   }
 
-  Widget _buildCoverPhotoSection(BuildContext context, bool isDarkMode) {
+  Widget _buildCoverPhotoSection(BuildContext context, bool isDarkMode, hospital) {
     return Column(
       children: [
         Stack(
@@ -317,19 +322,33 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
                   color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
                 ),
               ),
-              child: _coverImageFile != null
-                  ? ClipRRect(
+              child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Image.file(
+                child: _coverImageFile != null
+                    ? Image.file(
                   _coverImageFile!,
                   fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                )
+                    : hospital.coverPhoto != null && hospital.coverPhoto!.isNotEmpty
+                    ? Image.network(
+                  hospital.coverPhoto!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                )
+                    : Center(
+                  child: Icon(
+                    Icons.image,
+                    size: 60,
+                    color: isDarkMode
+                        ? Colors.grey[600]
+                        : Colors.grey[400],
+                  ),
                 ),
-              )
-                  : Icon(
-                Icons.image,
-                size: 60,
-                color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
               ),
+
             ),
             Positioned(
               bottom: 12,
@@ -655,14 +674,18 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
                           labelText: "Accreditation ${index + 1}",
                           prefixIcon: const Icon(Icons.verified),
                           filled: true,
-                          fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[50],
+                          fillColor: isDarkMode
+                              ? Colors.grey[850]
+                              : Colors.grey[50],
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide(
-                              color: isDarkMode ? Colors.grey[700]! : Colors.grey[300]!,
+                              color: isDarkMode
+                                  ? Colors.grey[700]!
+                                  : Colors.grey[300]!,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
@@ -934,8 +957,8 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
                               fontWeight: FontWeight.w600,
                               color: workingHours[day]!['isOpen']
                                   ? (isDarkMode
-                                  ? Colors.white
-                                  : Colors.grey[800])
+                                        ? Colors.white
+                                        : Colors.grey[800])
                                   : Colors.grey,
                             ),
                           ),
@@ -1018,7 +1041,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
             "Emergency Services Available",
             _hasEmergency,
             Icons.emergency,
-                (value) {
+            (value) {
               setState(() => _hasEmergency = value);
             },
             isDarkMode,
@@ -1028,7 +1051,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
             "Verified Hospital",
             _isVerified,
             Icons.verified,
-                (value) {
+            (value) {
               setState(() => _isVerified = value);
             },
             isDarkMode,
@@ -1039,12 +1062,12 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
   }
 
   Widget _buildSettingToggle(
-      String title,
-      bool value,
-      IconData icon,
-      Function(bool) onChanged,
-      bool isDarkMode,
-      ) {
+    String title,
+    bool value,
+    IconData icon,
+    Function(bool) onChanged,
+    bool isDarkMode,
+  ) {
     return Row(
       children: [
         Icon(icon, color: value ? Theme.of(context).primaryColor : Colors.grey),
@@ -1166,10 +1189,10 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
         onPressed: _isSaving
             ? null
             : () {
-          if (_formKey.currentState!.validate()) {
-            _saveHospitalProfile();
-          }
-        },
+                if (_formKey.currentState!.validate()) {
+                  _saveHospitalProfile();
+                }
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: isDarkMode
               ? DarkThemeColors.buttonPrimary
@@ -1184,37 +1207,37 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
         ),
         child: _isSaving
             ? const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          ),
-        )
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
             : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.save, size: 24, color: Colors.black),
-            const SizedBox(width: 12),
-            Text(
-              "Save Changes",
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.save, size: 24, color: Colors.black),
+                  const SizedBox(width: 12),
+                  Text(
+                    "Save Changes",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
   void _showImagePickerOptions(
-      BuildContext context,
-      String type,
-      bool isDarkMode,
-      ) {
+    BuildContext context,
+    String type,
+    bool isDarkMode,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
@@ -1249,7 +1272,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
                   Icons.camera_alt,
                   "Take Photo",
                   isDarkMode,
-                      () {
+                  () {
                     Navigator.pop(context);
                     _pickFromCamera();
                   },
@@ -1260,7 +1283,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
                   Icons.photo_library,
                   "Choose from Gallery",
                   isDarkMode,
-                      () {
+                  () {
                     Navigator.pop(context);
                     _pickFromGallery();
                   },
@@ -1274,12 +1297,12 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
   }
 
   Widget _buildImageOption(
-      BuildContext context,
-      IconData icon,
-      String label,
-      bool isDarkMode,
-      VoidCallback onTap,
-      ) {
+    BuildContext context,
+    IconData icon,
+    String label,
+    bool isDarkMode,
+    VoidCallback onTap,
+  ) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
@@ -1346,11 +1369,21 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
   }
 
   Future<void> _saveHospitalProfile() async {
+    if (_isSaving) return;
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
+
+    final hospital = authProvider.hospital;
+    if (hospital == null) {
+      return;
+    }
+    final hospitalProvider = Provider.of<HospitalProvider>(
       context,
       listen: false,
     );
@@ -1364,7 +1397,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
         setState(() => _isUploadingImage = true);
 
         try {
-          final result = await authProvider.uploadProfileImage(
+          final result = await authProvider.uploadCoverPhoto(
             _coverImageFile!,
           );
 
@@ -1412,53 +1445,63 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
           .where((text) => text.isNotEmpty)
           .toList();
 
-      final Map<String, dynamic> updateData = {
-        'hospitalName': _hospitalNameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'website': _websiteController.text.trim(),
-        'address': _addressController.text.trim(),
-        'city': _selectedCity,
-        'state': _selectedState,
-        'zip': _zipController.text.trim(),
-        'description': _descriptionController.text.trim(),
-        'bedCount': int.tryParse(_totalBedsController.text.trim()),
-        'icuBedCount': int.tryParse(_icuBedsController.text.trim()),
-        'emergencyBedCount': int.tryParse(_emergencyBedsController.text.trim()),
-        'hasEmergency': _hasEmergency,
-        'isVerified': _isVerified,
-        'departments': selectedDepartments,
-        'facilities': facilitiesList,
-        'operatingHours': workingHours,
-        'is24x7': _is24x7,
-        'type': _selectedType,
-        'accreditations': accreditationsList,
-        'emergencyPhoneNumber': _emergencyPhoneController.text.trim().isEmpty
+      hasAmbulance = facilitiesList.contains("Ambulance");
+      List<String> uploadedImages = [];
+      if (_hospitalImages.isNotEmpty) {
+        final response =
+        await authProvider.uploadHospitalImages(_hospitalImages);
+
+        if (response != null) {
+          uploadedImages = List<String>.from(response);
+          _hospitalImages.clear();
+        }
+      }
+      final mergedImages = uploadedImages.isNotEmpty
+          ? [...?hospital.hospitalImages, ...uploadedImages]
+          : hospital.hospitalImages;
+
+      final updateData = hospital.copyWith(
+        hospitalName: _hospitalNameController.text.trim(),
+        email: _emailController.text.trim(),
+        phoneNumber: _phoneController.text.trim(),
+        website: _websiteController.text.trim(),
+        address: _addressController.text.trim(),
+        city: _selectedCity,
+        state: _selectedState,
+        zip: _zipController.text.trim(),
+        description: _descriptionController.text.trim(),
+        bedCount: int.tryParse(_totalBedsController.text.trim()),
+        icuBedCount: int.tryParse(_icuBedsController.text.trim()),
+        emergencyBedCount: int.tryParse(_emergencyBedsController.text.trim()),
+        hasEmergency: _hasEmergency,
+        isVerified: _isVerified,
+        departments: selectedDepartments,
+        facilities: facilitiesList,
+        operatingHours: workingHours,
+        is24x7: _is24x7,
+        type: _selectedType,
+        accreditations: accreditationsList,
+        emergencyPhoneNumber: _emergencyPhoneController.text.trim().isEmpty
             ? null
             : _emergencyPhoneController.text.trim(),
-      };
-      if (uploadedImageUrl != null) {
-        updateData['coverPhoto'] = uploadedImageUrl;
-      }
+        isOpen: true,
+        ambulanceService: hasAmbulance,
+        coverPhoto: uploadedImageUrl ?? hospital.coverPhoto,
+        hospitalImages: mergedImages,
+      );
 
-      // TODO: Handle hospital images upload
-      // if (_hospitalImages.isNotEmpty) {
-      //   List<String> uploadedImageUrls = [];
-      //   for (var image in _hospitalImages) {
-      //     final url = await authProvider.uploadImage(image);
-      //     uploadedImageUrls.add(url);
-      //   }
-      //   updateData['hospitalImages'] = uploadedImageUrls;
-      // }
-
-      final success = await authProvider.updateProfile(updateData);
+      final success = await hospitalProvider.updateHospital(
+        hospital.id!,
+        updateData,
+        null,
+      );
       await authProvider.fetchUserProfile();
 
       if (!mounted) return;
 
       setState(() => _isSaving = false);
 
-      if (success) {
+      if (success == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Row(
@@ -1486,6 +1529,7 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
           }
         });
       } else {
+        print("Failed to update profile: ${authProvider.error}");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -1539,5 +1583,3 @@ class _EditHospitalProfileScreenState extends State<EditHospitalProfileScreen> {
     }
   }
 }
-
-

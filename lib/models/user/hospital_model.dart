@@ -213,6 +213,7 @@ class HospitalModel extends BaseUser {
     List<String>? accreditations,
     List<String>? hospitalImages,
     bool? ambulanceService,
+    bool? isOpen,
   }) {
     return HospitalModel(
       id: id ?? this.id,
@@ -230,7 +231,7 @@ class HospitalModel extends BaseUser {
       isVerified: isVerified ?? this.isVerified,
       rating: rating ?? this.rating,
       totalReviews: totalReviews ?? this.totalReviews,
-      isOpen: isOpen,
+      isOpen: this.isOpen,
       distance: distance ?? this.distance,
       description: description ?? this.description,
       coverPhoto: coverPhoto ?? this.coverPhoto,

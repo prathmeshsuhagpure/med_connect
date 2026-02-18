@@ -1126,8 +1126,11 @@ class _HospitalDetailsScreenState extends State<HospitalDetailsScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) =>
-                          BookAppointmentScreen(hospitalId: hospital.id!),
+                      builder: (context) => BookAppointmentScreen(
+                        hospitalId: hospital.id!,
+                        hospitalName: hospital.displayName,
+                        hospitalAddress: hospital.address ?? "",
+                      ),
                     ),
                   );
                 },

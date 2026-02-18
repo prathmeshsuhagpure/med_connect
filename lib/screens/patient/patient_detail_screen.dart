@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:med_connect/models/user/patient_model.dart';
 
 class PatientDetailScreen extends StatefulWidget {
-  const PatientDetailScreen({super.key});
+  final PatientModel? patient;
+  const PatientDetailScreen({super.key, this.patient});
 
   @override
   State<PatientDetailScreen> createState() => _PatientDetailScreenState();

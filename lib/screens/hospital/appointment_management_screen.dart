@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:med_connect/models/appointment_model.dart';
+import 'package:provider/provider.dart';
+import '../../providers/appointment_provider.dart';
+import '../../providers/authentication_provider.dart';
 
 class AppointmentManagementScreen extends StatefulWidget {
   const AppointmentManagementScreen({super.key});
@@ -9,7 +14,8 @@ class AppointmentManagementScreen extends StatefulWidget {
 }
 
 class _AppointmentManagementScreenState
-    extends State<AppointmentManagementScreen> with SingleTickerProviderStateMixin {
+    extends State<AppointmentManagementScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
 
@@ -20,6 +26,25 @@ class _AppointmentManagementScreenState
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAppointments();
+    });
+  }
+
+  void _loadAppointments() {
+    final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
+    final appointmentProvider = Provider.of<AppointmentProvider>(
+      context,
+      listen: false,
+    );
+    final hospitalId = authProvider.hospital?.id;
+
+    if (hospitalId != null) {
+      appointmentProvider.loadAppointmentsByHospital(hospitalId);
+    }
   }
 
   @override
@@ -74,7 +99,10 @@ class _AppointmentManagementScreenState
             children: [
               if (_isSearching) ...[
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: TextField(
                     controller: _searchController,
                     autofocus: true,
@@ -82,7 +110,9 @@ class _AppointmentManagementScreenState
                       hintText: "Search by patient name, ID, or doctor...",
                       prefixIcon: const Icon(Icons.search),
                       filled: true,
-                      fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[100],
+                      fillColor: isDarkMode
+                          ? Colors.grey[850]
+                          : Colors.grey[100],
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -93,7 +123,7 @@ class _AppointmentManagementScreenState
                       ),
                     ),
                     onChanged: (value) {
-                      // TODO: Implement search logic
+                      setState(() {});
                     },
                   ),
                 ),
@@ -105,8 +135,9 @@ class _AppointmentManagementScreenState
                   indicatorColor: Theme.of(context).primaryColor,
                   indicatorWeight: 3,
                   labelColor: Theme.of(context).primaryColor,
-                  unselectedLabelColor:
-                  isDarkMode ? Colors.grey[400] : Colors.grey[600],
+                  unselectedLabelColor: isDarkMode
+                      ? Colors.grey[400]
+                      : Colors.grey[600],
                   labelStyle: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -123,24 +154,85 @@ class _AppointmentManagementScreenState
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // Summary Cards
-          _buildSummaryCards(context, isMobile, isDarkMode),
+      body: Consumer<AppointmentProvider>(
+        builder: (context, provider, child) {
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          // Tab Content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildAllTab(context, isMobile, isDarkMode),
-                _buildUpcomingTab(context, isMobile, isDarkMode),
-                _buildCompletedTab(context, isMobile, isDarkMode),
-                _buildCancelledTab(context, isMobile, isDarkMode),
-              ],
-            ),
-          ),
-        ],
+          if (provider.error != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.red.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Error loading appointments',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    provider.error!,
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _loadAppointments,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return Column(
+            children: [
+              _buildSummaryCards(context, isMobile, isDarkMode, provider),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    _loadAppointments();
+                  },
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildAllTab(
+                        context,
+                        isMobile,
+                        isDarkMode,
+                        provider.appointments,
+                      ),
+                      _buildUpcomingTab(
+                        context,
+                        isMobile,
+                        isDarkMode,
+                        provider.upcomingAppointments,
+                      ),
+                      _buildCompletedTab(
+                        context,
+                        isMobile,
+                        isDarkMode,
+                        provider.pastAppointments,
+                      ),
+                      _buildCancelledTab(
+                        context,
+                        isMobile,
+                        isDarkMode,
+                        provider.cancelledAppointments,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -154,7 +246,11 @@ class _AppointmentManagementScreenState
   }
 
   Widget _buildSummaryCards(
-      BuildContext context, bool isMobile, bool isDarkMode) {
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+    AppointmentProvider provider,
+  ) {
     return Container(
       padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
@@ -171,7 +267,7 @@ class _AppointmentManagementScreenState
             child: _buildSummaryCard(
               context,
               "Today",
-              "24",
+              provider.todayAppointments.length.toString(),
               Icons.today,
               Colors.blue,
               isDarkMode,
@@ -182,7 +278,7 @@ class _AppointmentManagementScreenState
             child: _buildSummaryCard(
               context,
               "Pending",
-              "8",
+              provider.pendingCount.toString(),
               Icons.schedule,
               Colors.orange,
               isDarkMode,
@@ -193,7 +289,7 @@ class _AppointmentManagementScreenState
             child: _buildSummaryCard(
               context,
               "Confirmed",
-              "16",
+              provider.confirmedCount.toString(),
               Icons.check_circle,
               Colors.green,
               isDarkMode,
@@ -205,21 +301,19 @@ class _AppointmentManagementScreenState
   }
 
   Widget _buildSummaryCard(
-      BuildContext context,
-      String label,
-      String value,
-      IconData icon,
-      Color color,
-      bool isDarkMode,
-      ) {
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    bool isDarkMode,
+  ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[850] : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -245,10 +339,15 @@ class _AppointmentManagementScreenState
     );
   }
 
-  Widget _buildAllTab(BuildContext context, bool isMobile, bool isDarkMode) {
-    final appointments = _getAllAppointments();
+  Widget _buildAllTab(
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+    List<AppointmentModel> appointments,
+  ) {
+    final filteredAppointments = _filterAppointments(appointments);
 
-    if (appointments.isEmpty) {
+    if (filteredAppointments.isEmpty) {
       return _buildEmptyState(
         context,
         Icons.calendar_today_outlined,
@@ -260,13 +359,13 @@ class _AppointmentManagementScreenState
 
     return ListView.builder(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
-      itemCount: appointments.length,
+      itemCount: filteredAppointments.length,
       itemBuilder: (context, index) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: _buildAppointmentCard(
             context,
-            appointments[index],
+            filteredAppointments[index],
             isMobile,
             isDarkMode,
           ),
@@ -276,20 +375,32 @@ class _AppointmentManagementScreenState
   }
 
   Widget _buildUpcomingTab(
-      BuildContext context, bool isMobile, bool isDarkMode) {
-    final appointments = _getAllAppointments()
-        .where((apt) => apt.status == "Confirmed" || apt.status == "Pending")
-        .toList();
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+    List<AppointmentModel> appointments,
+  ) {
+    final filteredAppointments = _filterAppointments(appointments);
+
+    if (filteredAppointments.isEmpty) {
+      return _buildEmptyState(
+        context,
+        Icons.upcoming_outlined,
+        "No Upcoming Appointments",
+        "Upcoming appointments will appear here",
+        isDarkMode,
+      );
+    }
 
     return ListView.builder(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
-      itemCount: appointments.length,
+      itemCount: filteredAppointments.length,
       itemBuilder: (context, index) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: _buildAppointmentCard(
             context,
-            appointments[index],
+            filteredAppointments[index],
             isMobile,
             isDarkMode,
           ),
@@ -299,20 +410,32 @@ class _AppointmentManagementScreenState
   }
 
   Widget _buildCompletedTab(
-      BuildContext context, bool isMobile, bool isDarkMode) {
-    final appointments = _getAllAppointments()
-        .where((apt) => apt.status == "Completed")
-        .toList();
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+    List<AppointmentModel> appointments,
+  ) {
+    final filteredAppointments = _filterAppointments(appointments);
+
+    if (filteredAppointments.isEmpty) {
+      return _buildEmptyState(
+        context,
+        Icons.check_circle_outline,
+        "No Completed Appointments",
+        "Completed appointments will appear here",
+        isDarkMode,
+      );
+    }
 
     return ListView.builder(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
-      itemCount: appointments.length,
+      itemCount: filteredAppointments.length,
       itemBuilder: (context, index) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: _buildAppointmentCard(
             context,
-            appointments[index],
+            filteredAppointments[index],
             isMobile,
             isDarkMode,
           ),
@@ -322,20 +445,32 @@ class _AppointmentManagementScreenState
   }
 
   Widget _buildCancelledTab(
-      BuildContext context, bool isMobile, bool isDarkMode) {
-    final appointments = _getAllAppointments()
-        .where((apt) => apt.status == "Cancelled")
-        .toList();
+    BuildContext context,
+    bool isMobile,
+    bool isDarkMode,
+    List<AppointmentModel> appointments,
+  ) {
+    final filteredAppointments = _filterAppointments(appointments);
+
+    if (filteredAppointments.isEmpty) {
+      return _buildEmptyState(
+        context,
+        Icons.cancel_outlined,
+        "No Cancelled Appointments",
+        "Cancelled appointments will appear here",
+        isDarkMode,
+      );
+    }
 
     return ListView.builder(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
-      itemCount: appointments.length,
+      itemCount: filteredAppointments.length,
       itemBuilder: (context, index) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 16),
           child: _buildAppointmentCard(
             context,
-            appointments[index],
+            filteredAppointments[index],
             isMobile,
             isDarkMode,
           ),
@@ -344,12 +479,31 @@ class _AppointmentManagementScreenState
     );
   }
 
+  List<AppointmentModel> _filterAppointments(
+    List<AppointmentModel> appointments,
+  ) {
+    if (_searchController.text.isEmpty) {
+      return appointments;
+    }
+
+    final query = _searchController.text.toLowerCase();
+    return appointments.where((apt) {
+      return (apt.patientName?.toLowerCase().contains(query) ?? false) ||
+          apt.doctorName.toLowerCase().contains(query) ||
+          apt.id.toLowerCase().contains(query);
+    }).toList();
+  }
+
   Widget _buildAppointmentCard(
-      BuildContext context,
-      _AppointmentData appointment,
-      bool isMobile,
-      bool isDarkMode,
-      ) {
+    BuildContext context,
+    AppointmentModel appointment,
+    bool isMobile,
+    bool isDarkMode,
+  ) {
+    final formattedDate = DateFormat(
+      'MMM d, yyyy',
+    ).format(appointment.appointmentDate);
+
     return Container(
       decoration: BoxDecoration(
         color: isDarkMode ? Colors.grey[850] : Colors.white,
@@ -385,11 +539,13 @@ class _AppointmentManagementScreenState
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        appointment.id,
+                        '#${appointment.id.substring(appointment.id.length - 6)}',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
+                          color: isDarkMode
+                              ? Colors.grey[400]
+                              : Colors.grey[700],
                         ),
                       ),
                     ),
@@ -401,7 +557,10 @@ class _AppointmentManagementScreenState
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: appointment.type == "Video Consultation"
+                        color:
+                            appointment.appointmentType.toLowerCase().contains(
+                              'video',
+                            )
                             ? Colors.purple.withValues(alpha: 0.1)
                             : Colors.blue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -409,21 +568,29 @@ class _AppointmentManagementScreenState
                       child: Row(
                         children: [
                           Icon(
-                            appointment.type == "Video Consultation"
+                            appointment.appointmentType.toLowerCase().contains(
+                                  'video',
+                                )
                                 ? Icons.videocam
                                 : Icons.local_hospital,
                             size: 12,
-                            color: appointment.type == "Video Consultation"
+                            color:
+                                appointment.appointmentType
+                                    .toLowerCase()
+                                    .contains('video')
                                 ? Colors.purple
                                 : Colors.blue,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            appointment.type,
+                            appointment.appointmentType,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: appointment.type == "Video Consultation"
+                              color:
+                                  appointment.appointmentType
+                                      .toLowerCase()
+                                      .contains('video')
                                   ? Colors.purple
                                   : Colors.blue,
                             ),
@@ -433,24 +600,7 @@ class _AppointmentManagementScreenState
                     ),
                     const Spacer(),
                     // Status Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _getStatusColor(appointment.status).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        appointment.status,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _getStatusColor(appointment.status),
-                        ),
-                      ),
-                    ),
+                    _buildStatusBadge(appointment.status, isDarkMode),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -463,12 +613,14 @@ class _AppointmentManagementScreenState
                       width: 50,
                       height: 50,
                       decoration: BoxDecoration(
-                        color: appointment.patientColor.withValues(alpha: 0.1),
+                        color: Theme.of(
+                          context,
+                        ).primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         Icons.person,
-                        color: appointment.patientColor,
+                        color: Theme.of(context).primaryColor,
                         size: 28,
                       ),
                     ),
@@ -483,24 +635,20 @@ class _AppointmentManagementScreenState
                             children: [
                               Expanded(
                                 child: Text(
-                                  appointment.patientName,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
+                                  appointment.patientName ?? 'Patient',
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              if (appointment.consultationFee != null)
+                                Text(
+                                  '₹${appointment.consultationFee}',
+                                  style: TextStyle(
+                                    fontSize: 13,
                                     fontWeight: FontWeight.bold,
+                                    color: Colors.green,
                                   ),
                                 ),
-                              ),
-                              Text(
-                                appointment.age,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: isDarkMode
-                                      ? Colors.grey[400]
-                                      : Colors.grey[600],
-                                ),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 4),
@@ -534,115 +682,51 @@ class _AppointmentManagementScreenState
                 ),
                 const SizedBox(height: 16),
 
-                // Date, Time, and Contact Info
+                // Date and Time
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isDarkMode ? Colors.grey[800] : Colors.grey[50],
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Column(
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.calendar_today,
-                            size: 16,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            appointment.date,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDarkMode
-                                  ? Colors.grey[300]
-                                  : Colors.grey[700],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Icon(
-                            Icons.access_time,
-                            size: 16,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            appointment.time,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDarkMode
-                                  ? Colors.grey[300]
-                                  : Colors.grey[700],
-                            ),
-                          ),
-                        ],
+                      Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: Theme.of(context).primaryColor,
                       ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.phone,
-                            size: 16,
-                            color: isDarkMode
-                                ? Colors.grey[400]
-                                : Colors.grey[600],
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            appointment.phone,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDarkMode
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 8),
+                      Text(
+                        formattedDate,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isDarkMode
+                              ? Colors.grey[300]
+                              : Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Icon(
+                        Icons.access_time,
+                        size: 16,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        appointment.appointmentTime,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isDarkMode
+                              ? Colors.grey[300]
+                              : Colors.grey[700],
+                        ),
                       ),
                     ],
                   ),
                 ),
-
-                // Notes (if any)
-                if (appointment.notes != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.amber.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.note,
-                          size: 16,
-                          color: Colors.amber,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            appointment.notes!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDarkMode
-                                  ? Colors.grey[300]
-                                  : Colors.grey[700],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -661,12 +745,47 @@ class _AppointmentManagementScreenState
     );
   }
 
+  Widget _buildStatusBadge(AppointmentStatus status, bool isDarkMode) {
+    Color color;
+    switch (status) {
+      case AppointmentStatus.confirmed:
+        color = Colors.green;
+        break;
+      case AppointmentStatus.pending:
+        color = Colors.orange;
+        break;
+      case AppointmentStatus.completed:
+        color = Colors.blue;
+        break;
+      case AppointmentStatus.cancelledByPatient:
+      case AppointmentStatus.cancelledByHospital:
+        color = Colors.red;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status.name[0].toUpperCase() + status.name.substring(1),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionButtons(
-      BuildContext context,
-      _AppointmentData appointment,
-      bool isDarkMode,
-      ) {
-    if (appointment.status == "Completed") {
+    BuildContext context,
+    AppointmentModel appointment,
+    bool isDarkMode,
+  ) {
+    if (appointment.status == AppointmentStatus.completed) {
       return Row(
         children: [
           Expanded(
@@ -708,12 +827,12 @@ class _AppointmentManagementScreenState
           ),
         ],
       );
-    } else if (appointment.status == "Cancelled") {
+    } else if (appointment.isCancelled) {
       return SizedBox(
         width: double.infinity,
         child: OutlinedButton.icon(
           onPressed: () {
-            // TODO: View cancellation details
+            _showCancellationDetails(context, appointment, isDarkMode);
           },
           icon: const Icon(Icons.info_outline, size: 18),
           label: const Text("View Details"),
@@ -741,9 +860,7 @@ class _AppointmentManagementScreenState
               label: const Text("Reschedule"),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Theme.of(context).primaryColor,
-                side: BorderSide(
-                  color: Theme.of(context).primaryColor,
-                ),
+                side: BorderSide(color: Theme.of(context).primaryColor),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -757,7 +874,11 @@ class _AppointmentManagementScreenState
                 _showConfirmDialog(context, appointment, isDarkMode);
               },
               icon: const Icon(Icons.check, size: 18),
-              label: Text(appointment.status == "Pending" ? "Confirm" : "Complete"),
+              label: Text(
+                appointment.status == AppointmentStatus.pending
+                    ? "Confirm"
+                    : "Complete",
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
@@ -788,40 +909,29 @@ class _AppointmentManagementScreenState
   }
 
   Widget _buildEmptyState(
-      BuildContext context,
-      IconData icon,
-      String title,
-      String subtitle,
-      bool isDarkMode,
-      ) {
+    BuildContext context,
+    IconData icon,
+    String title,
+    String subtitle,
+    bool isDarkMode,
+  ) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: isDarkMode
-                    ? Colors.grey[800]
-                    : Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 80,
-                color: isDarkMode
-                    ? Colors.grey[600]
-                    : Theme.of(context).primaryColor.withValues(alpha: 0.5),
-              ),
+            Icon(
+              icon,
+              size: 80,
+              color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
             ),
             const SizedBox(height: 24),
             Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -839,21 +949,6 @@ class _AppointmentManagementScreenState
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case "Confirmed":
-        return Colors.green;
-      case "Pending":
-        return Colors.orange;
-      case "Completed":
-        return Colors.blue;
-      case "Cancelled":
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
   void _showFilterBottomSheet(BuildContext context, bool isDarkMode) {
     showModalBottomSheet(
       context: context,
@@ -862,72 +957,109 @@ class _AppointmentManagementScreenState
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Filter Appointments",
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 24),
-              _buildFilterOption(context, "All Appointments", isDarkMode),
-              _buildFilterOption(context, "In-Person Only", isDarkMode),
-              _buildFilterOption(context, "Video Consultations", isDarkMode),
-              _buildFilterOption(context, "Today", isDarkMode),
-              _buildFilterOption(context, "This Week", isDarkMode),
-              _buildFilterOption(context, "Emergency", isDarkMode),
-              const SizedBox(height: 16),
-              Row(
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text("Reset"),
+                  Text(
+                    "Filter Appointments",
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
+                  const SizedBox(height: 24),
+                  _buildFilterOption(
+                    context,
+                    "All",
+                    _selectedFilter == "All",
+                    isDarkMode,
+                    () {
+                      setModalState(() {
+                        _selectedFilter = "All";
+                      });
+                    },
+                  ),
+                  _buildFilterOption(
+                    context,
+                    "Today",
+                    _selectedFilter == "Today",
+                    isDarkMode,
+                    () {
+                      setModalState(() {
+                        _selectedFilter = "Today";
+                      });
+                    },
+                  ),
+                  _buildFilterOption(
+                    context,
+                    "This Week",
+                    _selectedFilter == "This Week",
+                    isDarkMode,
+                    () {
+                      setModalState(() {
+                        _selectedFilter = "This Week";
+                      });
+                    },
+                  ),
+                  _buildFilterOption(
+                    context,
+                    "This Month",
+                    _selectedFilter == "This Month",
+                    isDarkMode,
+                    () {
+                      setModalState(() {
+                        _selectedFilter = "This Month";
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
+                        setState(() {});
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                      child: const Text("Apply"),
+                      child: const Text("Apply Filters"),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
   Widget _buildFilterOption(
-      BuildContext context, String label, bool isDarkMode) {
-    final isSelected = _selectedFilter == label;
+    BuildContext context,
+    String label,
+    bool isSelected,
+    bool isDarkMode,
+    VoidCallback onTap,
+  ) {
     return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedFilter = label;
-        });
-      },
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
             Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+              isSelected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_unchecked,
               color: isSelected
                   ? Theme.of(context).primaryColor
                   : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
@@ -966,6 +1098,7 @@ class _AppointmentManagementScreenState
     );
     if (picked != null) {
       setState(() {
+        // TODO: Filter by date
       });
     }
   }
@@ -980,9 +1113,7 @@ class _AppointmentManagementScreenState
             borderRadius: BorderRadius.circular(20),
           ),
           title: const Text("New Appointment"),
-          content: const Text(
-            "This will open the appointment booking form.",
-          ),
+          content: const Text("This will open the appointment booking form."),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -1005,10 +1136,10 @@ class _AppointmentManagementScreenState
   }
 
   void _showRescheduleDialog(
-      BuildContext context,
-      _AppointmentData appointment,
-      bool isDarkMode,
-      ) {
+    BuildContext context,
+    AppointmentModel appointment,
+    bool isDarkMode,
+  ) {
     showDialog(
       context: context,
       builder: (context) {
@@ -1035,7 +1166,7 @@ class _AppointmentManagementScreenState
             ],
           ),
           content: Text(
-            "Reschedule appointment for ${appointment.patientName}?",
+            "Reschedule appointment for ${appointment.patientName ?? 'this patient'}?",
           ),
           actions: [
             TextButton(
@@ -1059,11 +1190,17 @@ class _AppointmentManagementScreenState
   }
 
   void _showConfirmDialog(
-      BuildContext context,
-      _AppointmentData appointment,
-      bool isDarkMode,
-      ) {
-    final action = appointment.status == "Pending" ? "Confirm" : "Complete";
+    BuildContext context,
+    AppointmentModel appointment,
+    bool isDarkMode,
+  ) {
+    final newStatus = appointment.status == AppointmentStatus.pending
+        ? AppointmentStatus.confirmed
+        : AppointmentStatus.completed;
+    final action = newStatus == AppointmentStatus.confirmed
+        ? "Confirm"
+        : "Complete";
+
     showDialog(
       context: context,
       builder: (context) {
@@ -1080,17 +1217,14 @@ class _AppointmentManagementScreenState
                   color: Colors.green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.check_circle,
-                  color: Colors.green,
-                ),
+                child: const Icon(Icons.check_circle, color: Colors.green),
               ),
               const SizedBox(width: 16),
               Expanded(child: Text("$action Appointment")),
             ],
           ),
           content: Text(
-            "$action appointment for ${appointment.patientName}?",
+            "$action appointment for ${appointment.patientName ?? 'this patient'}?",
           ),
           actions: [
             TextButton(
@@ -1098,19 +1232,33 @@ class _AppointmentManagementScreenState
               child: const Text("Cancel"),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Update appointment status
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("Appointment ${action.toLowerCase()}ed"),
-                    backgroundColor: Colors.green,
-                  ),
+              onPressed: () async {
+                final provider = Provider.of<AppointmentProvider>(
+                  context,
+                  listen: false,
                 );
+
+                final result = await provider.updateAppointmentStatus(
+                  appointment.id,
+                  newStatus,
+                );
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        result['message'] ??
+                            "Appointment ${action.toLowerCase()}ed",
+                      ),
+                      backgroundColor: result['success']
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                  );
+                }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
               child: Text(action),
             ),
           ],
@@ -1120,10 +1268,12 @@ class _AppointmentManagementScreenState
   }
 
   void _showCancelDialog(
-      BuildContext context,
-      _AppointmentData appointment,
-      bool isDarkMode,
-      ) {
+    BuildContext context,
+    AppointmentModel appointment,
+    bool isDarkMode,
+  ) {
+    final reasonController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (context) {
@@ -1140,17 +1290,30 @@ class _AppointmentManagementScreenState
                   color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.cancel,
-                  color: Colors.red,
-                ),
+                child: const Icon(Icons.cancel, color: Colors.red),
               ),
               const SizedBox(width: 16),
               const Expanded(child: Text("Cancel Appointment")),
             ],
           ),
-          content: Text(
-            "Are you sure you want to cancel the appointment for ${appointment.patientName}?",
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Are you sure you want to cancel the appointment for ${appointment.patientName ?? 'this patient'}?",
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: InputDecoration(
+                  hintText: "Reason for cancellation",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                maxLines: 2,
+              ),
+            ],
           ),
           actions: [
             TextButton(
@@ -1158,19 +1321,34 @@ class _AppointmentManagementScreenState
               child: const Text("No, Keep It"),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Cancel appointment
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Appointment cancelled"),
-                    backgroundColor: Colors.red,
-                  ),
+              onPressed: () async {
+                final provider = Provider.of<AppointmentProvider>(
+                  context,
+                  listen: false,
                 );
+
+                final result = await provider.cancelAppointmentByHospital(
+                  appointment.id,
+                  reasonController.text.isEmpty
+                      ? "Cancelled by hospital"
+                      : reasonController.text,
+                );
+
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        result['message'] ?? 'Appointment cancelled',
+                      ),
+                      backgroundColor: result['success']
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                  );
+                }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               child: const Text("Yes, Cancel"),
             ),
           ],
@@ -1179,106 +1357,57 @@ class _AppointmentManagementScreenState
     );
   }
 
-  List<_AppointmentData> _getAllAppointments() {
-    return [
-      _AppointmentData(
-        id: "APT001",
-        patientName: "Sarah Johnson",
-        age: "28 yrs",
-        doctorName: "Michael Brown",
-        specialization: "Cardiologist",
-        date: "Today, Feb 6",
-        time: "09:00 AM",
-        phone: "+1 234 567 8900",
-        type: "In-Person",
-        status: "Confirmed",
-        patientColor: Colors.blue,
-        notes: "First visit - Chest pain complaint",
-      ),
-      _AppointmentData(
-        id: "APT002",
-        patientName: "Robert Williams",
-        age: "45 yrs",
-        doctorName: "Emily Davis",
-        specialization: "Orthopedic",
-        date: "Today, Feb 6",
-        time: "10:30 AM",
-        phone: "+1 234 567 8901",
-        type: "Video Consultation",
-        status: "Pending",
-        patientColor: Colors.green,
-      ),
-      _AppointmentData(
-        id: "APT003",
-        patientName: "Lisa Anderson",
-        age: "52 yrs",
-        doctorName: "Sarah Johnson",
-        specialization: "Dermatologist",
-        date: "Today, Feb 6",
-        time: "02:00 PM",
-        phone: "+1 234 567 8902",
-        type: "In-Person",
-        status: "Confirmed",
-        patientColor: Colors.purple,
-      ),
-      _AppointmentData(
-        id: "APT004",
-        patientName: "David Martinez",
-        age: "38 yrs",
-        doctorName: "James Wilson",
-        specialization: "General Physician",
-        date: "Feb 5, 2026",
-        time: "03:30 PM",
-        phone: "+1 234 567 8903",
-        type: "In-Person",
-        status: "Completed",
-        patientColor: Colors.teal,
-      ),
-      _AppointmentData(
-        id: "APT005",
-        patientName: "Emma Thompson",
-        age: "31 yrs",
-        doctorName: "Robert Lee",
-        specialization: "Neurologist",
-        date: "Feb 4, 2026",
-        time: "11:00 AM",
-        phone: "+1 234 567 8904",
-        type: "Video Consultation",
-        status: "Cancelled",
-        patientColor: Colors.red,
-        notes: "Cancelled by patient - Personal emergency",
-      ),
-    ];
+  void _showCancellationDetails(
+    BuildContext context,
+    AppointmentModel appointment,
+    bool isDarkMode,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.info_outline, color: Colors.red),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(child: Text("Cancellation Details")),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Status: ${appointment.statusDisplayText}"),
+              const SizedBox(height: 12),
+              if (appointment.cancellationReason != null) ...[
+                const Text(
+                  "Reason:",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(appointment.cancellationReason!),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
   }
-}
-
-// Helper class
-class _AppointmentData {
-  final String id;
-  final String patientName;
-  final String age;
-  final String doctorName;
-  final String specialization;
-  final String date;
-  final String time;
-  final String phone;
-  final String type;
-  final String status;
-  final Color patientColor;
-  final String? notes;
-
-  _AppointmentData({
-    required this.id,
-    required this.patientName,
-    required this.age,
-    required this.doctorName,
-    required this.specialization,
-    required this.date,
-    required this.time,
-    required this.phone,
-    required this.type,
-    required this.status,
-    required this.patientColor,
-    this.notes,
-  });
 }

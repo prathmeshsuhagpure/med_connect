@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../services/api_endpoints.dart';
 import '../services/api_service.dart';
 import '../models/user/base_user_model.dart';
 import '../models/user/patient_model.dart';
@@ -379,10 +380,42 @@ class AuthenticationProvider extends ChangeNotifier {
     }
   }
 
-  Future<String?> uploadProfileImage(File imageFile) async {
-    if (_token == null) {
-      return null;
-    }
-    return await _apiService.uploadProfileImage(imageFile, _token!);
+  Future<String?> uploadProfilePicture(File imageFile) async {
+    if (_token == null) return null;
+
+    final result = await _apiService.uploadImages(
+      files: [imageFile],
+      token: _token!,
+      endpoint: ApiEndpoints.uploadProfileImage,
+      fieldName: 'image',
+    );
+
+    return result?.first;
   }
+
+  Future<String?> uploadCoverPhoto(File imageFile) async {
+    if (_token == null) return null;
+
+    final result = await _apiService.uploadImages(
+      files: [imageFile],
+      token: _token!,
+      endpoint: ApiEndpoints.uploadCoverPhoto,
+      fieldName: 'image',
+    );
+
+    return result?.first;
+  }
+
+  Future<List<String>?> uploadHospitalImages(List<File> images) async {
+    if (_token == null) return null;
+
+    return await _apiService.uploadImages(
+      files: images,
+      token: _token!,
+      endpoint: ApiEndpoints.uploadHospitalImages,
+      fieldName: 'images',
+    );
+  }
+
+
 }

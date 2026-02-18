@@ -71,7 +71,9 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
       _fullNameController.text = patient.name;
       _emailController.text = patient.email ?? "";
       _phoneController.text = patient.phoneNumber ?? "";
-      _dobController.text = patient.dateOfBirth ?? '';
+      _dobController.text = patient.dateOfBirth != null
+          ? "${patient.dateOfBirth!.day}/${patient.dateOfBirth!.month}/${patient.dateOfBirth!.year}"
+          : "";
       _heightController.text = patient.height?.toString() ?? '';
       _weightController.text = patient.weight?.toString() ?? '';
       _addressController.text = patient.address ?? '';
@@ -774,7 +776,7 @@ class _EditPatientProfileScreenState extends State<EditPatientProfileScreen> {
         setState(() => _isUploadingImage = true);
 
         try {
-          final result = await authProvider.uploadProfileImage(
+          final result = await authProvider.uploadProfilePicture(
             _profileImageFile!,
           );
 

@@ -13,7 +13,11 @@ class ApiEndpoints {
   static const updateUserProfile = '/api/user/update-profile';
   static const getUserProfile = '/api/user/profile';
   static const deleteUserProfile = '/api/user/profile';
+
+  // Upload Image EndPoints
   static const uploadProfileImage = '/api/user/upload/profile-picture';
+  static const uploadCoverPhoto = '/api/user/upload/cover-photo';
+  static const uploadHospitalImages = '/api/user/upload/hospital-images';
 
   // Doctor EndPoints
   static const getAllDoctors = '/api/doctor/getDoctors';
@@ -29,4 +33,28 @@ class ApiEndpoints {
   static const updateHospital = '/api/hospital/updateHospital';
   static const deleteHospital = '/api/hospital/deleteHospital';
   static const toggleStatus = '/api/hospital';
+
+  //Razorpay Endpoints
+  static const String createRazorpayOrder = '/api/payment/razorpay/create-order';
+  static const String verifyRazorpayPayment = '/api/payment/razorpay/verify';
+  static const String getPaymentHistory = '/api/payment/history';
+  static const String getPaymentById = '/api/payment';
+  static const String refundPayment = '/api/payment/refund';
+
+  // Appointment EndPoints
+  static const createAppointment = '/api/appointment/createAppointment';
+  static const getAppointmentsByPatient = '/api/appointment/getAppointment/patient';
+  static const cancelAppointment = '/api/appointment';
+  static const getAppointmentsByHospital = '/api/appointment/getAppointment/hospital';
+  static const getAppointmentsByDoctor = '/api/appointment/getAppointment';
+  static const updateAppointment = '/api/appointment/updateAppointment';
+  static const rescheduleAppointment = '/api/appointment';
+
+  // Patient EndPoints
+  static const getRecentPatients = '/api/patient/getRecentPatients';
+  static const getPatientsByHospital = '/api/patient/getPatientByHospital';
+  static const getAllPatients = '/api/patient/getAllPatients';
+
+
+
 }

@@ -492,7 +492,7 @@ class _SignupScreenState extends State<SignupScreen> {
             labelText: role == UserRole.hospital
                 ? " Admin Full Name"
                 : "Full Name",
-            hintText: "Enter admin name",
+            hintText: role == UserRole.hospital ? "Enter admin name" : "Enter Full Name",
             prefixIcon: const Icon(Icons.person_outline_rounded),
             isDarkMode: isDarkMode,
           ),
@@ -514,7 +514,7 @@ class _SignupScreenState extends State<SignupScreen> {
             labelText: role == UserRole.hospital
                 ? " Admin Email Address"
                 : "Email Address",
-            hintText: "Enter admin email",
+            hintText: role == UserRole.hospital ? "Enter admin email" : "Enter Email",
             prefixIcon: const Icon(Icons.email_outlined),
             isDarkMode: isDarkMode,
           ),

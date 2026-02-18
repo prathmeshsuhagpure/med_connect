@@ -53,13 +53,6 @@ final Map<String, Map<String, dynamic>> workingHours = {
   'Sunday': {'isOpen': false, 'start': '08:00', 'end': '14:00'},
 };
 
-final images = [
-  "https://via.placeholder.com/400x300",
-  "https://via.placeholder.com/400x300",
-  "https://via.placeholder.com/400x300",
-  "https://via.placeholder.com/400x300",
-];
-
 IconData getFacilityIcon(String name) {
   switch (name.toLowerCase()) {
     case 'icu':

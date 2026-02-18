@@ -1,20 +1,19 @@
+import 'package:intl/intl.dart';
+
 import 'base_user_model.dart';
 
 class PatientModel extends BaseUser {
-  final String? dateOfBirth;
+  final DateTime? dateOfBirth;
   final String? gender;
   final String? bloodGroup;
   final double? height;
   final double? weight;
-
-  // Emergency Contact
   final String? emergencyName;
   final String? emergencyContact;
-
-  // Medical Information
   final String? allergies;
   final String? medications;
   final String? conditions;
+  final bool? isActive;
 
   PatientModel({
     required super.id,
@@ -35,26 +34,36 @@ class PatientModel extends BaseUser {
     this.allergies,
     this.medications,
     this.conditions,
+    this.isActive,
   }) : super(role: 'patient');
 
   factory PatientModel.fromJson(Map<String, dynamic> json) {
+    DateTime? parsedDob;
+    if (json['dob'] != null) {
+      parsedDob = DateTime.tryParse(json['dob']);
+      parsedDob ??= DateFormat("MMMM d, yyyy").parse(json['dob']);
+    } else if (json['dateOfBirth'] != null) {
+      parsedDob = DateTime.tryParse(json['dateOfBirth']);
+      parsedDob ??= DateFormat("MMMM d, yyyy").parse(json['dateOfBirth']);
+    }
     return PatientModel(
-      id: json['id'] ?? '',
+      id: json['_id'] ?? json['id'] ?? '',
       name: json['name'] ?? '',
       email: json['email'] ?? '',
       phoneNumber: json['phone'] ?? json['phoneNumber'] ?? '',
       profilePicture: json['profileImage'] ?? json['profilePicture'],
       address: json['address'],
-      dateOfBirth: json['dob'] ?? json['dateOfBirth'],
+      dateOfBirth: parsedDob,
       gender: json['gender'],
       bloodGroup: json['bloodGroup'],
       height: _parseDouble(json['height']),
       weight: _parseDouble(json['weight']),
       emergencyName: json['emergencyName'],
-      emergencyContact: json['emergencyContact'],
+      emergencyContact: json['emergencyContact']?.toString(),
       allergies: json['allergies'],
       medications: json['medications'],
       conditions: json['conditions'],
+      isActive: json['isActive'] ?? json['active'] ?? true,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'])
           : null,
@@ -95,6 +104,7 @@ class PatientModel extends BaseUser {
       'allergies': allergies,
       'medications': medications,
       'conditions': conditions,
+      'isActive': isActive,
     };
   }
 
@@ -106,7 +116,7 @@ class PatientModel extends BaseUser {
     String? phoneNumber,
     String? profilePicture,
     String? address,
-    String? dateOfBirth,
+    DateTime? dateOfBirth,
     String? gender,
     String? bloodGroup,
     double? height,
@@ -116,6 +126,7 @@ class PatientModel extends BaseUser {
     String? allergies,
     String? medications,
     String? conditions,
+    bool? isActive,
   }) {
     return PatientModel(
       id: id ?? this.id,
@@ -134,30 +145,37 @@ class PatientModel extends BaseUser {
       allergies: allergies ?? this.allergies,
       medications: medications ?? this.medications,
       conditions: conditions ?? this.conditions,
+      isActive: isActive ?? this.isActive,
     );
   }
 
   // Helper getters
   int? get age {
     if (dateOfBirth == null) return null;
-    try {
-      final dob = DateTime.parse(dateOfBirth!);
-      final now = DateTime.now();
-      int age = now.year - dob.year;
-      if (now.month < dob.month || (now.month == dob.month && now.day < dob.day)) {
-        age--;
-      }
-      return age;
-    } catch (e) {
-      return null;
+
+    final now = DateTime.now();
+    int age = now.year - dateOfBirth!.year;
+
+    if (now.month < dateOfBirth!.month ||
+        (now.month == dateOfBirth!.month && now.day < dateOfBirth!.day)) {
+      age--;
     }
+
+    return age;
   }
+
+  String get statusText => (isActive ?? false) ? 'Active' : 'Inactive';
 
   bool get hasEmergencyContact =>
       emergencyName != null && emergencyContact != null;
 
+  String? get formattedDateOfBirth {
+    if (dateOfBirth == null) {
+      return null;
+    }
+    return DateFormat('dd MMM yyyy').format(dateOfBirth!);
+  }
+
   bool get hasCompleteProfile =>
-      dateOfBirth != null &&
-          gender != null &&
-          bloodGroup != null;
+      dateOfBirth != null && gender != null && bloodGroup != null;
 }

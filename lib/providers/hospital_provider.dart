@@ -64,7 +64,7 @@ class HospitalProvider with ChangeNotifier {
   }*/
 
   /// UPDATE
-  Future<void> updateHospital(
+  Future<bool> updateHospital(
       String id, HospitalModel hospital, String? token) async {
     try {
       final updated =
@@ -80,9 +80,11 @@ class HospitalProvider with ChangeNotifier {
       }
 
       notifyListeners();
+      return true;
     } catch (e) {
       _errorMessage = e.toString();
       notifyListeners();
+      return false;
     }
   }
 

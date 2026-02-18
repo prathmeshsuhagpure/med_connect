@@ -1,11 +1,20 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:med_connect/models/appointment_model.dart';
 import '../models/user/doctor_model.dart';
 import '../models/user/hospital_model.dart';
 import 'api_endpoints.dart';
 
 class ApiService {
+  static final ApiService _instance = ApiService._internal();
+
+  factory ApiService() {
+    return _instance;
+  }
+
+  ApiService._internal();
+
   final String? baseUrl = ApiEndpoints.baseUrl;
 
   String? _token;
@@ -14,13 +23,12 @@ class ApiService {
     _token = token;
   }
 
-  Map<String, String> _getHeaders({bool includeAuth = false}) {
+  Map<String, String> getHeaders({bool includeAuth = false}) {
     final headers = {'Content-Type': 'application/json'};
 
     if (includeAuth && _token != null) {
       headers['Authorization'] = 'Bearer $_token';
     }
-
     return headers;
   }
 
@@ -32,7 +40,7 @@ class ApiService {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl${ApiEndpoints.login}'),
-        headers: _getHeaders(),
+        headers: getHeaders(),
         body: jsonEncode({'email': email, 'password': password, 'role': role}),
       );
 
@@ -94,7 +102,7 @@ class ApiService {
 
       final response = await http.post(
         Uri.parse('$baseUrl${ApiEndpoints.signup}'),
-        headers: _getHeaders(),
+        headers: getHeaders(),
         body: jsonEncode(body),
       );
 
@@ -114,7 +122,7 @@ class ApiService {
 
       final response = await http.put(
         Uri.parse('$baseUrl${ApiEndpoints.updateUserProfile}'),
-        headers: _getHeaders(includeAuth: true),
+        headers: getHeaders(includeAuth: true),
         body: jsonEncode(cleanData),
       );
 
@@ -141,7 +149,7 @@ class ApiService {
 
       final response = await http.post(
         Uri.parse('$baseUrl${ApiEndpoints.verifyToken}'),
-        headers: _getHeaders(includeAuth: true),
+        headers: getHeaders(includeAuth: true),
       );
 
       final data = jsonDecode(response.body);
@@ -166,7 +174,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl${ApiEndpoints.getUserProfile}'),
-        headers: _getHeaders(includeAuth: true),
+        headers: getHeaders(includeAuth: true),
       );
 
       final data = jsonDecode(response.body);
@@ -184,22 +192,45 @@ class ApiService {
     }
   }
 
-  Future<String?> uploadProfileImage(File imageFile, String token) async {
+  Future<List<String>?> uploadImages({
+    required List<File> files,
+    required String token,
+    required String endpoint,
+    required String fieldName,
+  }) async {
     try {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('$baseUrl${ApiEndpoints.uploadProfileImage}'),
+        Uri.parse('$baseUrl$endpoint'),
       );
+
       request.headers['Authorization'] = 'Bearer $token';
-      request.files.add(
-        await http.MultipartFile.fromPath('image', imageFile.path),
-      );
+
+      for (final file in files) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            fieldName, // 'image' OR 'images'
+            file.path,
+          ),
+        );
+      }
+
       final response = await request.send();
       final responseBody = await response.stream.bytesToString();
       final data = jsonDecode(responseBody);
+
       if (response.statusCode == 200) {
-        return data['imageUrl'];
+        // hospital-images returns "images"
+        if (data['images'] != null) {
+          return List<String>.from(data['images']);
+        }
+
+        // profile / cover returns "imageUrl"
+        if (data['imageUrl'] != null) {
+          return [data['imageUrl']];
+        }
       }
+
       return null;
     } catch (e) {
       return null;
@@ -210,7 +241,7 @@ class ApiService {
     try {
       await http.post(
         Uri.parse('$baseUrl${ApiEndpoints.logout}'),
-        headers: _getHeaders(includeAuth: true),
+        headers: getHeaders(includeAuth: true),
       );
     } catch (e) {
       throw Exception('Logout error: $e');
@@ -220,7 +251,7 @@ class ApiService {
   Future<List<DoctorModel>> fetchAllDoctors(String? token) async {
     final response = await http.get(
       Uri.parse('$baseUrl${ApiEndpoints.getAllDoctors}'),
-      headers: _getHeaders(includeAuth: true),
+      headers: getHeaders(includeAuth: true),
     );
 
     if (response.statusCode == 200) {
@@ -240,7 +271,7 @@ class ApiService {
       Uri.parse(
         '$baseUrl${ApiEndpoints.getDoctorsByHospital}/$hospitalId/doctors',
       ),
-      headers: _getHeaders(includeAuth: true),
+      headers: getHeaders(includeAuth: true),
     );
 
     if (response.statusCode == 200) {
@@ -255,7 +286,7 @@ class ApiService {
   Future<DoctorModel> addDoctor(DoctorModel doctor, String? token) async {
     final response = await http.post(
       Uri.parse('$baseUrl${ApiEndpoints.addDoctor}'),
-      headers: _getHeaders(includeAuth: true),
+      headers: getHeaders(includeAuth: true),
       body: json.encode(doctor.toJson()),
     );
 
@@ -274,7 +305,7 @@ class ApiService {
   ) async {
     final response = await http.put(
       Uri.parse('$baseUrl${ApiEndpoints.updateDoctor}/$id}'),
-      headers: _getHeaders(includeAuth: true),
+      headers: getHeaders(includeAuth: true),
       body: json.encode(doctor.toJson()),
     );
 
@@ -289,7 +320,7 @@ class ApiService {
   Future<void> deleteDoctor(String id, String? token) async {
     final response = await http.delete(
       Uri.parse('$baseUrl${ApiEndpoints.deleteDoctor}/$id}'),
-      headers: _getHeaders(includeAuth: true),
+      headers: getHeaders(includeAuth: true),
     );
 
     if (response.statusCode != 200) {
@@ -325,7 +356,10 @@ class ApiService {
       '$baseUrl${ApiEndpoints.getHospitals}',
     ).replace(queryParameters: queryParams);
 
-    final response = await http.get(uri, headers: _getHeaders(includeAuth: true));
+    final response = await http.get(
+      uri,
+      headers: getHeaders(includeAuth: true),
+    );
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body)['data'] as List;
@@ -335,24 +369,19 @@ class ApiService {
     }
   }
 
-  Future<HospitalModel> fetchHospital(
-      String hospitalId,
-      String? token,
-      ) async {
-    final uri =
-    Uri.parse('$baseUrl${ApiEndpoints.getHospital}/$hospitalId');
+  Future<HospitalModel> fetchHospital(String hospitalId, String? token) async {
+    final uri = Uri.parse('$baseUrl${ApiEndpoints.getHospital}/$hospitalId');
 
     final response = await http.get(
       uri,
-      headers: _getHeaders(includeAuth: true),
+      headers: getHeaders(includeAuth: true),
     );
 
     if (response.statusCode == 200) {
-      final Map<String, dynamic> decoded =
-      json.decode(response.body);
+      final Map<String, dynamic> decoded = json.decode(response.body);
 
       final Map<String, dynamic> hospitalData =
-      decoded['data'] as Map<String, dynamic>;
+          decoded['data'] as Map<String, dynamic>;
 
       return HospitalModel.fromJson(hospitalData);
     } else {
@@ -362,14 +391,13 @@ class ApiService {
     }
   }
 
-
   Future<HospitalModel> addHospital(
     HospitalModel hospital,
     String? token,
   ) async {
     final response = await http.post(
       Uri.parse('$baseUrl${ApiEndpoints.addHospital}'),
-      headers: _getHeaders(includeAuth: true),
+      headers: getHeaders(includeAuth: true),
       body: json.encode(hospital.toJson()),
     );
 
@@ -387,11 +415,10 @@ class ApiService {
     String? token,
   ) async {
     final response = await http.put(
-      Uri.parse('$baseUrl${ApiEndpoints.updateHospital}/$id}'),
-      headers: _getHeaders(includeAuth: true),
+      Uri.parse('$baseUrl${ApiEndpoints.updateHospital}/$id'),
+      headers: getHeaders(includeAuth: true),
       body: json.encode(hospital.toJson()),
     );
-
     if (response.statusCode == 200) {
       final data = json.decode(response.body)['data'];
       return HospitalModel.fromJson(data);
@@ -403,7 +430,7 @@ class ApiService {
   Future<void> deleteHospital(String id, String? token) async {
     final response = await http.delete(
       Uri.parse('$baseUrl${ApiEndpoints.deleteHospital}/$id}'),
-      headers: _getHeaders(includeAuth: true,)
+      headers: getHeaders(includeAuth: true),
     );
 
     if (response.statusCode != 200) {
@@ -414,13 +441,238 @@ class ApiService {
   Future<bool> toggleStatus(String id, String? token) async {
     final response = await http.patch(
       Uri.parse('$baseUrl${ApiEndpoints.toggleStatus}/$id/toggle-status}'),
-      headers: _getHeaders(includeAuth: true,)
+      headers: getHeaders(includeAuth: true),
     );
 
     if (response.statusCode == 200) {
       return json.decode(response.body)['data']['isActive'];
     } else {
       throw Exception('Failed to toggle status');
+    }
+  }
+
+  // Appointments
+  Future<Map<String, dynamic>> createAppointment(
+    AppointmentModel appointment,
+  ) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.post(
+        Uri.parse('$baseUrl${ApiEndpoints.createAppointment}'),
+        headers: headers,
+        body: jsonEncode(appointment.toJson()),
+      );
+
+      Map<String, dynamic> decoded;
+      try {
+        final decodedResponse = jsonDecode(response.body);
+        if (decodedResponse is Map<String, dynamic>) {
+          decoded = decodedResponse;
+        } else {
+          return {
+            'success': false,
+            'message': 'Invalid response structure from server.',
+          };
+        }
+      } catch (jsonError) {
+        return {
+          'success': false,
+          'message': 'Failed to parse server response: ${jsonError.toString()}',
+        };
+      }
+
+      // Check for successful status codes AND success flag
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          decoded['success'] == true) {
+        return decoded;
+      } else {
+        final errorMessage =
+            decoded['message'] ??
+            'Unknown error occurred (Status: ${response.statusCode})';
+        return {
+          'success': false,
+          'message': errorMessage,
+          'statusCode': response.statusCode,
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  Future<Map<String, dynamic>> getAppointmentsByPatient(
+    String patientId,
+  ) async {
+    final headers = getHeaders(includeAuth: true);
+    final response = await http.get(
+      Uri.parse("$baseUrl${ApiEndpoints.getAppointmentsByPatient}/$patientId"),
+      headers: headers,
+    );
+
+    return jsonDecode(response.body);
+  }
+
+  Future<Map<String, dynamic>> getAppointmentsByHospital(
+    String hospitalId,
+  ) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.get(
+        Uri.parse(
+          "$baseUrl${ApiEndpoints.getAppointmentsByHospital}/$hospitalId",
+        ),
+        headers: headers,
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // Get appointments by doctor ID
+  Future<Map<String, dynamic>> getAppointmentsByDoctor(String doctorId) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.get(
+        Uri.parse("$baseUrl${ApiEndpoints.getAppointmentsByDoctor}/$doctorId"),
+        headers: headers,
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // Cancel appointment by patient
+  Future<Map<String, dynamic>> cancelAppointmentByPatient(
+    String appointmentId,
+    String reason,
+  ) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.put(
+        Uri.parse(
+          "$baseUrl${ApiEndpoints.cancelAppointment}/$appointmentId/cancel",
+        ),
+        headers: headers,
+        body: jsonEncode({'cancelledBy': 'patient', 'reason': reason}),
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // Cancel appointment by hospital
+  Future<Map<String, dynamic>> cancelAppointmentByHospital(
+    String appointmentId,
+    String reason,
+  ) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.put(
+        Uri.parse(
+          "$baseUrl${ApiEndpoints.cancelAppointment}/$appointmentId/cancel",
+        ),
+        headers: headers,
+        body: jsonEncode({'cancelledBy': 'hospital', 'reason': reason}),
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // Reschedule appointment
+  Future<Map<String, dynamic>> rescheduleAppointment(
+    String appointmentId,
+    DateTime newDate,
+    String newTime,
+  ) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.patch(
+        Uri.parse(
+          "$baseUrl${ApiEndpoints.rescheduleAppointment}/$appointmentId/reschedule",
+        ),
+        headers: headers,
+        body: jsonEncode({
+          'appointmentDate': newDate.toIso8601String(),
+          'appointmentTime': newTime,
+        }),
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateAppointmentStatus(
+    String appointmentId,
+    String status,
+  ) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.patch(
+        Uri.parse("$baseUrl${ApiEndpoints.updateAppointment}/$appointmentId"),
+        headers: headers,
+        body: jsonEncode({'status': status}),
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // Patients
+
+  Future<Map<String, dynamic>> fetchAllPatients() async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.get(
+        Uri.parse('$baseUrl${ApiEndpoints.getAllPatients}'),
+        headers: headers,
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // Fetch recent patients (last 10 or specified number)
+  Future<Map<String, dynamic>> fetchRecentPatients({int limit = 10}) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.get(
+        Uri.parse('$baseUrl${ApiEndpoints.getRecentPatients}?limit=$limit'),
+        headers: headers,
+      );
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // Fetch patients by hospital ID
+  Future<Map<String, dynamic>> fetchPatientsByHospital(
+    String hospitalId,
+  ) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      final response = await http.get(
+        Uri.parse('$baseUrl${ApiEndpoints.getPatientsByHospital}/$hospitalId'),
+        headers: headers,
+      );
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 }

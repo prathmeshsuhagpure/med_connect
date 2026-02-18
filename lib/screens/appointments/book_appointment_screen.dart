@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:med_connect/providers/authentication_provider.dart';
 import 'package:provider/provider.dart';
 import '../../models/user/doctor_model.dart';
 import '../../providers/doctor_provider.dart';
+import '../payment/payment_screen.dart';
 
 class BookAppointmentScreen extends StatefulWidget {
   final String hospitalId;
+  final String hospitalName;
+  final String hospitalAddress;
 
-  const BookAppointmentScreen({super.key, required this.hospitalId});
+  const BookAppointmentScreen({
+    super.key,
+    required this.hospitalId,
+    required this.hospitalName,
+    required this.hospitalAddress,
+  });
 
   @override
   State<BookAppointmentScreen> createState() => _BookAppointmentScreenState();
@@ -1083,7 +1092,6 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       }
       setState(() => _currentStep++);
     } else if (_currentStep == 2) {
-      // Validate appointment details
       if (!_formKey.currentState!.validate()) {
         return;
       }
@@ -1102,87 +1110,51 @@ class _BookAppointmentScreenState extends State<BookAppointmentScreen> {
       }
       setState(() => _currentStep++);
     } else if (_currentStep == 3) {
-      // Confirm booking
-      _confirmBooking();
+      _navigateToPaymentScreen();
     }
   }
 
-  void _confirmBooking() async {
-    setState(() => _isLoading = true);
-
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
-
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      // Show success dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => _buildSuccessDialog(context),
+  void _navigateToPaymentScreen() {
+    final patientProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
+    final patient = patientProvider.patient;
+    if (patient == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Patient information is missing")),
       );
+      return;
     }
-  }
-
-  Widget _buildSuccessDialog(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.check_circle,
-                color: Colors.green,
-                size: 60,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              "Booking Confirmed!",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              "Your appointment has been booked successfully",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(context); // Close dialog
-                      Navigator.pop(context); // Close booking screen
-                    },
-                    child: const Text("Done"),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Navigate to appointment details
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                    ),
-                    child: const Text("View Details"),
-                  ),
-                ),
-              ],
-            ),
-          ],
+    final doctor = _selectedDoctor;
+    final date = _selectedDate;
+    if (doctor == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please complete all booking details")),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaymentConfirmationScreen(
+          doctorName: _selectedDoctor!.name,
+          doctorSpecialization: _selectedDoctor!.specialization ?? 'General',
+          doctorImage: _selectedDoctor!.profilePicture,
+          appointmentDate: date!,
+          appointmentTime: _selectedTimeSlot!,
+          appointmentType: _appointmentType!,
+          consultationFee:
+              double.tryParse(_selectedDoctor!.consultationFee.toString()) ??
+              500.0,
+          hospitalName: doctor.hospitalAffiliation ?? "",
+          hospitalAddress: doctor.address ?? "",
+          patientName: patient.name,
+          patientPhoneNumber: patient.phoneNumber ?? "",
+          patientSymptoms: _reasonController.text,
+          isFirstVisit: _isFirstVisit,
+          hospitalId: doctor.hospitalId,
+          doctorId: doctor.id,
         ),
       ),
     );
