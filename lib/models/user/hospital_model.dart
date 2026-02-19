@@ -3,7 +3,6 @@ import 'base_user_model.dart';
 class HospitalModel extends BaseUser {
   final String? hospitalName;
   final String? registrationNumber;
-  final String? licenseNumber;
   final String? specialties;
   final List<String>? facilities;
   final Map<String, dynamic>? operatingHours;
@@ -41,7 +40,6 @@ class HospitalModel extends BaseUser {
     super.updatedAt,
     this.hospitalName,
     this.registrationNumber,
-    this.licenseNumber,
     this.specialties,
     this.facilities,
     this.operatingHours,
@@ -79,7 +77,6 @@ class HospitalModel extends BaseUser {
       address: json['address'],
       hospitalName: json['hospitalName'],
       registrationNumber: json['registrationNumber'],
-      licenseNumber: json['licenseNumber'],
       specialties: json['specialties'],
       isVerified: json['isVerified'] ?? false,
       rating: _parseDouble(json['rating']),
@@ -144,11 +141,9 @@ class HospitalModel extends BaseUser {
       'email': email,
       'role': role,
       'phoneNumber': phoneNumber,
-      'profilePicture': profilePicture,
       'address': address,
       'hospitalName': hospitalName,
       'registrationNumber': registrationNumber,
-      'licenseNumber': licenseNumber,
       'specialties': specialties,
       'facilities': facilities,
       'operatingHours': operatingHours,
@@ -220,11 +215,9 @@ class HospitalModel extends BaseUser {
       name: name ?? this.name,
       email: email ?? this.email,
       phoneNumber: phoneNumber ?? this.phoneNumber,
-      //profilePicture: profilePicture ?? this.profilePicture,
       address: address ?? this.address,
       hospitalName: hospitalName ?? this.hospitalName,
       registrationNumber: registrationNumber ?? this.registrationNumber,
-      licenseNumber: licenseNumber ?? this.licenseNumber,
       specialties: specialties ?? this.specialties,
       facilities: facilities ?? this.facilities,
       operatingHours: operatingHours ?? this.operatingHours,

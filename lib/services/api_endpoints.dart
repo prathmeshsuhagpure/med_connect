@@ -12,7 +12,6 @@ class ApiEndpoints {
   // User EndPoints
   static const updateUserProfile = '/api/user/update-profile';
   static const getUserProfile = '/api/user/profile';
-  static const deleteUserProfile = '/api/user/profile';
 
   // Upload Image EndPoints
   static const uploadProfileImage = '/api/user/upload/profile-picture';
@@ -33,6 +32,7 @@ class ApiEndpoints {
   static const updateHospital = '/api/hospital/updateHospital';
   static const deleteHospital = '/api/hospital/deleteHospital';
   static const toggleStatus = '/api/hospital';
+  static const deleteAccount = '/api/hospital/deleteHospital';
 
   //Razorpay Endpoints
   static const String createRazorpayOrder = '/api/payment/razorpay/create-order';
@@ -44,17 +44,20 @@ class ApiEndpoints {
   // Appointment EndPoints
   static const createAppointment = '/api/appointment/createAppointment';
   static const getAppointmentsByPatient = '/api/appointment/getAppointment/patient';
-  static const cancelAppointment = '/api/appointment';
   static const getAppointmentsByHospital = '/api/appointment/getAppointment/hospital';
   static const getAppointmentsByDoctor = '/api/appointment/getAppointment';
-  static const updateAppointment = '/api/appointment/updateAppointment';
+  static const updateAppointmentStatus = '/api/appointment';
   static const rescheduleAppointment = '/api/appointment';
+  static const cancelAppointment = '/api/appointment';
+  static const completeAppointment = '/api/appointment';
 
   // Patient EndPoints
   static const getRecentPatients = '/api/patient/getRecentPatients';
   static const getPatientsByHospital = '/api/patient/getPatientByHospital';
   static const getAllPatients = '/api/patient/getAllPatients';
+  static const getRecentPatientsByHospital = '/api/patient/getPatientByHospital';
 
-
+  // FCM Token
+  static const saveFcmToken = '/api/auth/save-fcm-token';
 
 }

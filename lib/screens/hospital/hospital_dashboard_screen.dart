@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:med_connect/models/appointment_model.dart';
 import 'package:med_connect/models/user/doctor_model.dart';
+import 'package:med_connect/models/user/patient_model.dart';
+import 'package:med_connect/providers/patient_provider.dart';
 import 'package:med_connect/screens/doctor/add_doctor_screen.dart';
 import 'package:med_connect/screens/doctor/doctor_management_screen.dart';
 import 'package:med_connect/screens/hospital/appointment_management_screen.dart';
@@ -31,17 +33,32 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final hospital = context.read<AuthenticationProvider>().hospital;
+      if (hospital == null) return;
 
-      if (hospital != null) {
-        context.read<DoctorProvider>().loadDoctorsByHospital(
-          hospital.id.toString(),
-          null,
-        );
-      }
-      final appointment = context.read<AppointmentProvider>();
-      appointment.loadAppointmentsByHospital(hospital!.id.toString());
+      context.read<PatientProvider>().fetchPatientsByHospital(hospital.id!);
+      context.read<PatientProvider>().fetchRecentPatients(hospital.id!);
+
+      context.read<DoctorProvider>().loadDoctorsByHospital(hospital.id!, null);
+
+      context.read<AppointmentProvider>().loadAppointmentsByHospital(
+        hospital.id!,
+      );
     });
   }
+
+  Future<void> _onRefresh() async {
+    final hospital = context.read<AuthenticationProvider>().hospital;
+    if (hospital == null) return;
+
+    await Future.wait([
+      context.read<PatientProvider>().fetchPatientsByHospital(hospital.id!),
+      context.read<PatientProvider>().fetchRecentPatients(hospital.id!),
+      context.read<DoctorProvider>().loadDoctorsByHospital(hospital.id!, null),
+      context.read<AppointmentProvider>()
+          .loadAppointmentsByHospital(hospital.id!),
+    ]);
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -51,97 +68,100 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.all(isMobile ? 16 : 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header Section
-                _buildHeader(context, isMobile, isDarkMode),
-                const SizedBox(height: 24),
+        child: RefreshIndicator(
+          onRefresh: _onRefresh,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: EdgeInsets.all(isMobile ? 16 : 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Section
+                  _buildHeader(context, isMobile, isDarkMode),
+                  const SizedBox(height: 24),
 
-                // Period Selector
-                _buildPeriodSelector(context, isDarkMode),
-                const SizedBox(height: 24),
+                  // Period Selector
+                  _buildPeriodSelector(context, isDarkMode),
+                  const SizedBox(height: 24),
 
-                // Statistics Cards
-                _buildStatisticsCards(context, isMobile, isDarkMode),
-                const SizedBox(height: 24),
+                  // Statistics Cards
+                  _buildStatisticsCards(context, isMobile, isDarkMode),
+                  const SizedBox(height: 24),
 
-                // Quick Actions
-                _buildQuickActions(context, isDarkMode),
-                const SizedBox(height: 32),
+                  // Quick Actions
+                  _buildQuickActions(context, isDarkMode),
+                  const SizedBox(height: 32),
 
-                // Today's Appointments
-                _buildSectionHeader(
-                  context,
-                  "Today's Appointments",
-                  "View All",
-                  isDarkMode,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AppointmentManagementScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildTodaysAppointments(context, isMobile, isDarkMode),
-                const SizedBox(height: 32),
+                  // Today's Appointments
+                  _buildSectionHeader(
+                    context,
+                    "Today's Appointments",
+                    "View All",
+                    isDarkMode,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AppointmentManagementScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildTodaysAppointments(context, isMobile, isDarkMode),
+                  const SizedBox(height: 32),
 
-                // Recent Patients
-                _buildSectionHeader(
-                  context,
-                  "Recent Patients",
-                  "View All",
-                  isDarkMode,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PatientListScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildRecentPatients(context, isMobile, isDarkMode),
-                const SizedBox(height: 32),
+                  // Recent Patients
+                  _buildSectionHeader(
+                    context,
+                    "Recent Patients",
+                    "View All",
+                    isDarkMode,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PatientListScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildRecentPatients(context, isMobile, isDarkMode),
+                  const SizedBox(height: 32),
 
-                // Doctors Status
-                _buildSectionHeader(
-                  context,
-                  "Doctors Available",
-                  "Manage",
-                  isDarkMode,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DoctorManagementScreen(),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildDoctorsStatus(context, isMobile, isDarkMode),
-                const SizedBox(height: 32),
+                  // Doctors Status
+                  _buildSectionHeader(
+                    context,
+                    "Doctors Available",
+                    "Manage",
+                    isDarkMode,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => DoctorManagementScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDoctorsStatus(context, isMobile, isDarkMode),
+                  const SizedBox(height: 32),
 
-                // Revenue Chart
-                _buildSectionHeader(
-                  context,
-                  "Revenue Overview",
-                  "Details",
-                  isDarkMode,
-                  onTap: () {},
-                ),
-                const SizedBox(height: 16),
-                _buildRevenueChart(context, isMobile, isDarkMode),
-                const SizedBox(height: 20),
-              ],
+                  // Revenue Chart
+                  _buildSectionHeader(
+                    context,
+                    "Revenue Overview",
+                    "Details",
+                    isDarkMode,
+                    onTap: () {},
+                  ),
+                  const SizedBox(height: 16),
+                  _buildRevenueChart(context, isMobile, isDarkMode),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ),
@@ -235,7 +255,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (context) =>
-                      NotificationScreen(userRole: UserRole.hospital),
+                      NotificationScreen(/*userRole: UserRole.hospital*/),
                 ),
               );
             },
@@ -294,10 +314,17 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
     bool isDarkMode,
   ) {
     final doctorProvider = context.watch<DoctorProvider>();
-    final doctors = doctorProvider.doctors;
-    final activeDoctors = doctors.where((d) => d.isAvailable == true).length;
+    final appointmentProvider = context.watch<AppointmentProvider>();
+    final patientProvider = context.watch<PatientProvider>();
 
+    final doctors = doctorProvider.doctors;
+    final appointments = appointmentProvider.confirmedCount;
+    final patients = patientProvider.activeCount;
+
+    final activeDoctors = doctors.where((d) => d.isAvailable == true).length;
     final onLeaveDoctors = doctors.where((d) => d.isAvailable == false).length;
+    final totalPatients = patients;
+    final totalAppointments = appointments;
 
     return GridView.count(
       shrinkWrap: true,
@@ -310,7 +337,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
         _buildStatCard(
           context,
           "Total Patients",
-          "1,234",
+          totalPatients.toString(),
           "+12%",
           FontAwesomeIcons.peopleGroup,
           Colors.blue,
@@ -320,7 +347,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
         _buildStatCard(
           context,
           "Appointments",
-          "48",
+          totalAppointments.toString(),
           "+8%",
           FontAwesomeIcons.calendarCheck,
           Colors.green,
@@ -459,6 +486,14 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
   }
 
   Widget _buildQuickActions(BuildContext context, bool isDark) {
+    final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
+    final hospital = authProvider.hospital;
+
+    if (hospital == null) return Text("No hospital");
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -497,7 +532,12 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => AddDoctorScreen()),
+                    MaterialPageRoute(
+                      builder: (context) => AddDoctorScreen(
+                        hospitalId: hospital.id,
+                        hospitalAffiliation: hospital.displayName,
+                      ),
+                    ),
                   );
                 },
               ),
@@ -749,40 +789,50 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
     bool isMobile,
     bool isDarkMode,
   ) {
-    final patients = [
-      _PatientData(
-        name: "Alice Thompson",
-        lastVisit: "2 days ago",
-        condition: "Diabetes",
-        color: Colors.purple,
-      ),
-      _PatientData(
-        name: "David Martinez",
-        lastVisit: "1 week ago",
-        condition: "Hypertension",
-        color: Colors.red,
-      ),
-      _PatientData(
-        name: "Emma Wilson",
-        lastVisit: "2 weeks ago",
-        condition: "Asthma",
-        color: Colors.blue,
-      ),
-    ];
+    final patientProvider = context.watch<PatientProvider>();
+    final patients = patientProvider.recentPatients;
+
+    if (patientProvider.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (patientProvider.error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          patientProvider.error!,
+          style: const TextStyle(color: Colors.red),
+        ),
+      );
+    }
+
+    if (patients.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            "No Patients Found",
+            style: TextStyle(
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Column(
       children: patients.map((patient) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: _buildPatientCard(context, patient, isDarkMode),
+          child: _buildRecentPatientCard(context, patient, isDarkMode),
         );
       }).toList(),
     );
   }
 
-  Widget _buildPatientCard(
+  Widget _buildRecentPatientCard(
     BuildContext context,
-    _PatientData patient,
+    PatientModel patient,
     bool isDarkMode,
   ) {
     return Container(
@@ -807,12 +857,17 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: patient.color.withValues(alpha: 0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.person, color: patient.color, size: 28),
+            child: Icon(
+              Icons.person,
+              color: Theme.of(context).primaryColor,
+              size: 28,
+            ),
           ),
           const SizedBox(width: 16),
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -825,7 +880,7 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  patient.condition,
+                  patient.allergies ?? "No condition",
                   style: TextStyle(
                     fontSize: 13,
                     color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
@@ -833,24 +888,6 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
                 ),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                patient.lastVisit,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Icon(
-                Icons.arrow_forward_ios,
-                size: 16,
-                color: isDarkMode ? Colors.grey[600] : Colors.grey[400],
-              ),
-            ],
           ),
         ],
       ),
@@ -869,7 +906,15 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
     }
 
     if (doctors.isEmpty) {
-      return const Text("No doctors available");
+      return Padding(
+        padding: const EdgeInsets.all(20),
+        child: Text(
+          "No Doctors found",
+          style: TextStyle(
+            color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+          ),
+        ),
+      );
     }
 
     return Column(
@@ -1097,18 +1142,4 @@ class HospitalDashboardScreenState extends State<HospitalDashboardScreen> {
       ),
     );
   }
-}
-
-class _PatientData {
-  final String name;
-  final String lastVisit;
-  final String condition;
-  final Color color;
-
-  _PatientData({
-    required this.name,
-    required this.lastVisit,
-    required this.condition,
-    required this.color,
-  });
 }

@@ -957,9 +957,8 @@ class _AddDoctorScreenState extends State<AddDoctorScreen> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("Error1: $e"), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);

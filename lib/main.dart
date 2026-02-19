@@ -1,3 +1,5 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:med_connect/providers/appointment_provider.dart';
@@ -8,6 +10,7 @@ import 'package:med_connect/providers/patient_provider.dart';
 import 'package:med_connect/screens/auth/login_screen.dart';
 import 'package:med_connect/screens/splash_screen.dart';
 import 'package:med_connect/services/api_service.dart';
+import 'package:med_connect/services/notification_service.dart';
 import 'package:med_connect/services/payment_service.dart';
 import 'package:med_connect/theme/theme.dart';
 import 'package:med_connect/widgets/btm_nav_bar.dart';
@@ -16,10 +19,22 @@ import 'package:provider/provider.dart';
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print("Background message: ${message.notification?.title}");
+}
+final notificationService = NotificationService();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
 
+  await dotenv.load(fileName: ".env");
+  await Firebase.initializeApp();
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  await NotificationService().initialize();
   runApp(const MyApp());
 }
 
@@ -49,7 +64,6 @@ class MyApp extends StatelessWidget {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.dark,
-        initialRoute: '/',
         navigatorKey: navigatorKey,
         routes: {
           '/login': (context) => const LoginScreen(),

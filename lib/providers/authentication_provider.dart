@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/api_endpoints.dart';
@@ -69,20 +70,25 @@ class AuthenticationProvider extends ChangeNotifier {
       if (response['success'] == true) {
         _token = response['token'];
 
-        // Create appropriate user model based on role
+        _apiService.setToken(_token);
+
         if (response['user'] != null) {
           _currentUser = UserFactory.fromJson(response['user']);
-
-          // Save to secure storage
           await _secureStorage.write(key: 'auth_token', value: _token!);
           await _secureStorage.write(
             key: 'user_data',
             value: jsonEncode(response['user']),
           );
           await _secureStorage.write(key: 'user_role', value: role);
-
-          _apiService.setToken(_token);
         }
+
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null) {
+          await _apiService.sendFCMTokenToBackend(fcmToken);
+        }
+        FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
+          await _apiService.sendFCMTokenToBackend(newToken);
+        });
       } else {
         _error = response['message'] ?? 'Login failed';
       }
@@ -320,7 +326,6 @@ class AuthenticationProvider extends ChangeNotifier {
     } catch (e) {
       await logout();
       throw Exception("Error loading stored auth: $e");
-
     }
   }
 
@@ -416,6 +421,4 @@ class AuthenticationProvider extends ChangeNotifier {
       fieldName: 'images',
     );
   }
-
-
 }

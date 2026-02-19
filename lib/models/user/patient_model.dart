@@ -14,13 +14,14 @@ class PatientModel extends BaseUser {
   final String? medications;
   final String? conditions;
   final bool? isActive;
+  final String? profilePicture;
 
   PatientModel({
     required super.id,
     required super.name,
     required super.email,
     required super.phoneNumber,
-    super.profilePicture,
+    this.profilePicture,
     super.address,
     super.createdAt,
     super.updatedAt,

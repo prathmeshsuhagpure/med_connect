@@ -3,6 +3,7 @@ import 'package:med_connect/models/user/doctor_model.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/doctor_provider.dart';
+import 'doctor_detail_screen.dart';
 
 class DoctorListScreen extends StatefulWidget {
   const DoctorListScreen({super.key});
@@ -41,14 +42,9 @@ class _DoctorListScreenState extends State<DoctorListScreen>
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery
-        .of(context)
-        .size
-        .width;
+    final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 650;
-    final isDarkMode = Theme
-        .of(context)
-        .brightness == Brightness.dark;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -73,14 +69,11 @@ class _DoctorListScreenState extends State<DoctorListScreen>
             color: isDarkMode ? Colors.grey[900] : Colors.white,
             child: TabBar(
               controller: _tabController,
-              indicatorColor: Theme
-                  .of(context)
-                  .primaryColor,
-              labelColor: Theme
-                  .of(context)
-                  .primaryColor,
-              unselectedLabelColor:
-              isDarkMode ? Colors.grey[400] : Colors.grey[600],
+              indicatorColor: Theme.of(context).primaryColor,
+              labelColor: Theme.of(context).primaryColor,
+              unselectedLabelColor: isDarkMode
+                  ? Colors.grey[400]
+                  : Colors.grey[600],
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -131,12 +124,12 @@ class _DoctorListScreenState extends State<DoctorListScreen>
               prefixIcon: const Icon(Icons.search),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() {});
-                },
-              )
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {});
+                      },
+                    )
                   : null,
               filled: true,
               fillColor: isDarkMode ? Colors.grey[850] : Colors.grey[100],
@@ -163,14 +156,20 @@ class _DoctorListScreenState extends State<DoctorListScreen>
               _buildQuickFilterChip("Cardiology", Icons.favorite, isDarkMode),
               const SizedBox(width: 8),
               _buildQuickFilterChip(
-                  "Orthopedic", Icons.accessibility_new, isDarkMode),
+                "Orthopedic",
+                Icons.accessibility_new,
+                isDarkMode,
+              ),
               const SizedBox(width: 8),
               _buildQuickFilterChip("Pediatrics", Icons.child_care, isDarkMode),
               const SizedBox(width: 8),
               _buildQuickFilterChip("Neurology", Icons.psychology, isDarkMode),
               const SizedBox(width: 8),
               _buildQuickFilterChip(
-                  "Dentistry", Icons.sentiment_satisfied, isDarkMode),
+                "Dentistry",
+                Icons.sentiment_satisfied,
+                isDarkMode,
+              ),
             ],
           ),
         ),
@@ -184,11 +183,7 @@ class _DoctorListScreenState extends State<DoctorListScreen>
     return FilterChip(
       label: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 6),
-          Text(label),
-        ],
+        children: [Icon(icon, size: 16), const SizedBox(width: 6), Text(label)],
       ),
       selected: isSelected,
       onSelected: (selected) {
@@ -196,34 +191,29 @@ class _DoctorListScreenState extends State<DoctorListScreen>
           _selectedFilter = selected ? label : "All";
         });
       },
-      selectedColor: Theme
-          .of(context)
-          .primaryColor
-          .withValues(alpha: 0.2),
-      checkmarkColor: Theme
-          .of(context)
-          .primaryColor,
+      selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+      checkmarkColor: Theme.of(context).primaryColor,
       labelStyle: TextStyle(
         fontWeight: FontWeight.w600,
         fontSize: 13,
         color: isSelected
-            ? Theme
-            .of(context)
-            .primaryColor
+            ? Theme.of(context).primaryColor
             : (isDarkMode ? Colors.grey[400] : Colors.grey[600]),
       ),
     );
   }
 
-  Widget _buildDoctorList(BuildContext context, String filter, bool isMobile,
-      bool isDarkMode) {
+  Widget _buildDoctorList(
+    BuildContext context,
+    String filter,
+    bool isMobile,
+    bool isDarkMode,
+  ) {
     final doctorProvider = Provider.of<DoctorProvider>(context);
     final doctors = doctorProvider.doctors;
 
     if (doctorProvider.isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (doctorProvider.errorMessage != null) {
@@ -250,9 +240,7 @@ class _DoctorListScreenState extends State<DoctorListScreen>
     }
 
     if (doctors.isEmpty) {
-      return const Center(
-        child: Text("No doctors found"),
-      );
+      return const Center(child: Text("No doctors found"));
     }
 
     return RefreshIndicator(
@@ -270,52 +258,49 @@ class _DoctorListScreenState extends State<DoctorListScreen>
     );
   }
 
-  Widget _buildDoctorCard(BuildContext context, DoctorModel doctor,
-      bool isDarkMode) {
+  Widget _buildDoctorCard(
+    BuildContext context,
+    DoctorModel doctor,
+    bool isDarkMode,
+  ) {
     final isFavorite = _favorites.contains(doctor.id);
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: () {
-        // TODO: Navigate to DoctorDetailsScreen
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDarkMode ? Colors.grey[850] : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkMode ? Colors.grey[850] : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildDoctorAvatar(doctor, isDarkMode),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildDoctorHeader(doctor, isFavorite, isDarkMode),
+                const SizedBox(height: 8),
+                _buildDoctorInfo(doctor, isDarkMode),
+                const SizedBox(height: 12),
+                _buildDoctorStats(doctor, isDarkMode),
+                const SizedBox(height: 12),
+                _buildActionButtons(doctor, isDarkMode),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDoctorAvatar(doctor, isDarkMode),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildDoctorHeader(doctor, isFavorite, isDarkMode),
-                  const SizedBox(height: 8),
-                  _buildDoctorInfo(doctor, isDarkMode),
-                  const SizedBox(height: 12),
-                  _buildDoctorStats(doctor, isDarkMode),
-                  const SizedBox(height: 12),
-                  _buildActionButtons(doctor, isDarkMode),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -327,21 +312,17 @@ class _DoctorListScreenState extends State<DoctorListScreen>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.grey,
-        border: Border.all(
-          color: Colors.white,
-          width: 2,
-        ),
+        border: Border.all(color: Colors.white, width: 2),
       ),
-      child: Icon(
-        Icons.person,
-        color: Colors.green,
-        size: 40,
-      ),
+      child: Icon(Icons.person, color: Colors.green, size: 40),
     );
   }
 
-  Widget _buildDoctorHeader(DoctorModel doctor, bool isFavorite,
-      bool isDarkMode) {
+  Widget _buildDoctorHeader(
+    DoctorModel doctor,
+    bool isFavorite,
+    bool isDarkMode,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -435,22 +416,22 @@ class _DoctorListScreenState extends State<DoctorListScreen>
   }
 
   Widget _buildDoctorStats(DoctorModel doctor, bool isDarkMode) {
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
       children: [
         _buildStatChip(
           Icons.star,
-          "${doctor.rating}",
+          doctor.rating?.toString() ?? "0.0",
           Colors.amber,
           isDarkMode,
         ),
-        const SizedBox(width: 8),
         _buildStatChip(
           Icons.people,
           "${doctor.consultationFee}+ patients",
           Colors.blue,
           isDarkMode,
         ),
-        const SizedBox(width: 8),
         _buildStatChip(
           Icons.timeline,
           "${doctor.experience} years",
@@ -461,8 +442,13 @@ class _DoctorListScreenState extends State<DoctorListScreen>
     );
   }
 
-  Widget _buildStatChip(IconData icon, String label, Color color,
-      bool isDarkMode) {
+
+  Widget _buildStatChip(
+    IconData icon,
+    String label,
+    Color color,
+    bool isDarkMode,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -493,7 +479,12 @@ class _DoctorListScreenState extends State<DoctorListScreen>
         Expanded(
           child: OutlinedButton.icon(
             onPressed: () {
-              // TODO: View profile
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => DoctorDetailScreen(doctorId: doctor.id),
+                ),
+              );
             },
             icon: const Icon(Icons.visibility, size: 18),
             label: const Text("View Profile"),
@@ -514,9 +505,7 @@ class _DoctorListScreenState extends State<DoctorListScreen>
             icon: const Icon(Icons.calendar_today, size: 18),
             label: const Text("Book"),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme
-                  .of(context)
-                  .primaryColor,
+              backgroundColor: Theme.of(context).primaryColor,
               padding: const EdgeInsets.symmetric(vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -546,11 +535,7 @@ class _DoctorListScreenState extends State<DoctorListScreen>
                 children: [
                   Text(
                     "Filter & Sort",
-                    style: Theme
-                        .of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -570,7 +555,8 @@ class _DoctorListScreenState extends State<DoctorListScreen>
                     spacing: 8,
                     runSpacing: 8,
                     children: ["Rating", "Experience", "Price", "Name"].map((
-                        sort) {
+                      sort,
+                    ) {
                       final isSelected = _selectedSort == sort;
                       return ChoiceChip(
                         label: Text(sort),
@@ -583,18 +569,16 @@ class _DoctorListScreenState extends State<DoctorListScreen>
                             _selectedSort = sort;
                           });
                         },
-                        selectedColor: Theme
-                            .of(context)
-                            .primaryColor
-                            .withValues(alpha: 0.2),
+                        selectedColor: Theme.of(
+                          context,
+                        ).primaryColor.withValues(alpha: 0.2),
                         labelStyle: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: isSelected
-                              ? Theme
-                              .of(context)
-                              .primaryColor
-                              : (isDarkMode ? Colors.grey[400] : Colors
-                              .grey[600]),
+                              ? Theme.of(context).primaryColor
+                              : (isDarkMode
+                                    ? Colors.grey[400]
+                                    : Colors.grey[600]),
                         ),
                       );
                     }).toList(),
@@ -616,11 +600,20 @@ class _DoctorListScreenState extends State<DoctorListScreen>
                     runSpacing: 8,
                     children: [
                       _buildFilterChipModal(
-                          "Available Now", Icons.check_circle, setModalState),
+                        "Available Now",
+                        Icons.check_circle,
+                        setModalState,
+                      ),
                       _buildFilterChipModal(
-                          "Top Rated", Icons.star, setModalState),
+                        "Top Rated",
+                        Icons.star,
+                        setModalState,
+                      ),
                       _buildFilterChipModal(
-                          "Verified", Icons.verified, setModalState),
+                        "Verified",
+                        Icons.verified,
+                        setModalState,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -647,9 +640,7 @@ class _DoctorListScreenState extends State<DoctorListScreen>
                             Navigator.pop(context);
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme
-                                .of(context)
-                                .primaryColor,
+                            backgroundColor: Theme.of(context).primaryColor,
                           ),
                           child: const Text("Apply"),
                         ),
@@ -665,17 +656,16 @@ class _DoctorListScreenState extends State<DoctorListScreen>
     );
   }
 
-  Widget _buildFilterChipModal(String label, IconData icon,
-      StateSetter setModalState) {
+  Widget _buildFilterChipModal(
+    String label,
+    IconData icon,
+    StateSetter setModalState,
+  ) {
     final isSelected = _selectedFilter == label;
     return FilterChip(
       label: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16),
-          const SizedBox(width: 6),
-          Text(label),
-        ],
+        children: [Icon(icon, size: 16), const SizedBox(width: 6), Text(label)],
       ),
       selected: isSelected,
       onSelected: (selected) {
@@ -686,13 +676,8 @@ class _DoctorListScreenState extends State<DoctorListScreen>
           _selectedFilter = selected ? label : "All";
         });
       },
-      selectedColor: Theme
-          .of(context)
-          .primaryColor
-          .withValues(alpha: 0.2),
-      checkmarkColor: Theme
-          .of(context)
-          .primaryColor,
+      selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+      checkmarkColor: Theme.of(context).primaryColor,
     );
   }
 }

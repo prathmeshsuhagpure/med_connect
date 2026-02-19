@@ -819,7 +819,7 @@ class _SpecializationListScreenState extends State<SpecializationListScreen>
                   top: Radius.circular(16),
                 ),
                 child: Image.network(
-                  hospital.profilePicture ?? '',
+                  hospital.coverPhoto ?? '',
                   height: 160,
                   width: double.infinity,
                   fit: BoxFit.cover,

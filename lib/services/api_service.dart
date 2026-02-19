@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:med_connect/models/appointment_model.dart';
+import 'package:med_connect/models/user/patient_model.dart';
 import '../models/user/doctor_model.dart';
 import '../models/user/hospital_model.dart';
 import 'api_endpoints.dart';
@@ -289,7 +290,6 @@ class ApiService {
       headers: getHeaders(includeAuth: true),
       body: json.encode(doctor.toJson()),
     );
-
     if (response.statusCode == 201) {
       final jsonData = json.decode(response.body);
       return DoctorModel.fromJson(jsonData['data']);
@@ -617,8 +617,8 @@ class ApiService {
   ) async {
     try {
       final headers = getHeaders(includeAuth: true);
-      final response = await http.patch(
-        Uri.parse("$baseUrl${ApiEndpoints.updateAppointment}/$appointmentId"),
+      final response = await http.put(
+        Uri.parse("$baseUrl${ApiEndpoints.updateAppointmentStatus}/$appointmentId/confirm"),
         headers: headers,
         body: jsonEncode({'status': status}),
       );
@@ -626,6 +626,20 @@ class ApiService {
       return jsonDecode(response.body);
     } catch (e) {
       return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<void> completeAppointment(String appointmentId, String token) async {
+    final headers = getHeaders(includeAuth: true);
+    final response = await http.put(
+      Uri.parse("$baseUrl${ApiEndpoints.completeAppointment}/$appointmentId/complete"),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        jsonDecode(response.body)["message"] ?? "Failed to complete appointment",
+      );
     }
   }
 
@@ -645,22 +659,23 @@ class ApiService {
     }
   }
 
-  // Fetch recent patients (last 10 or specified number)
-  Future<Map<String, dynamic>> fetchRecentPatients({int limit = 10}) async {
-    try {
-      final headers = getHeaders(includeAuth: true);
-      final response = await http.get(
-        Uri.parse('$baseUrl${ApiEndpoints.getRecentPatients}?limit=$limit'),
-        headers: headers,
-      );
-
-      return jsonDecode(response.body);
-    } catch (e) {
-      return {'success': false, 'message': e.toString()};
+  Future<List<PatientModel>> getRecentPatientsByHospital(
+    String hospitalId,
+  ) async {
+    final headers = getHeaders(includeAuth: true);
+    final url = Uri.parse(
+      '$baseUrl${ApiEndpoints.getRecentPatientsByHospital}/$hospitalId/recent',
+    );
+    final response = await http.get(url, headers: headers);
+    if (response.statusCode == 200) {
+      final body = json.decode(response.body);
+      final List<dynamic> data = body['data'];
+      return data.map((json) => PatientModel.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load recent patients: ${response.body}');
     }
   }
 
-  // Fetch patients by hospital ID
   Future<Map<String, dynamic>> fetchPatientsByHospital(
     String hospitalId,
   ) async {
@@ -675,4 +690,36 @@ class ApiService {
       return {'success': false, 'message': e.toString()};
     }
   }
+
+  Future<void> deleteAccount(String id) async {
+    final headers = getHeaders(includeAuth: true);
+    final response = await http.delete(
+      Uri.parse("$baseUrl${ApiEndpoints.deleteAccount}/$id"),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(jsonDecode(response.body)["message"]);
+    }
+  }
+
+  Future<void> sendFCMTokenToBackend(String token) async {
+    try {
+      final headers = getHeaders(includeAuth: true);
+      print("headers in fcm token: $headers");
+
+      final response = await http.post(
+        Uri.parse('$baseUrl${ApiEndpoints.saveFcmToken}'),
+        headers: headers,
+        body: jsonEncode({"fcmToken": token}),
+      );
+
+      print("FCM Response: ${response.statusCode} ${response.body}");
+
+    } catch (e) {
+      print("Error sending FCM token: $e");
+    }
+  }
+
+
 }

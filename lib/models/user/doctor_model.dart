@@ -16,13 +16,13 @@ class DoctorModel extends BaseUser {
   final String? hospitalId;
   final String? gender;
   final String? bio;
+  final String? profilePicture;
 
   DoctorModel({
     required super.id,
     required super.name,
     required super.email,
     required super.phoneNumber,
-    super.profilePicture,
     super.address,
     super.createdAt,
     super.updatedAt,
@@ -41,6 +41,7 @@ class DoctorModel extends BaseUser {
     this.hospitalId,
     this.gender,
     this.bio,
+    this.profilePicture,
   }) : super(role: 'doctor');
 
   factory DoctorModel.fromJson(Map<String, dynamic> json) {

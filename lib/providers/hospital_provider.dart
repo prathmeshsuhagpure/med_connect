@@ -12,8 +12,11 @@ class HospitalProvider with ChangeNotifier {
   String? _errorMessage;
 
   List<HospitalModel> get hospitals => [..._hospitals];
+
   HospitalModel? get currentHospital => _currentHospital;
+
   bool get isLoading => _isLoading;
+
   String? get errorMessage => _errorMessage;
 
   Future<void> loadHospitals({
@@ -50,25 +53,14 @@ class HospitalProvider with ChangeNotifier {
     _setLoading(false);
   }
 
-  /*/// ADD
-  Future<void> addHospital(HospitalModel hospital, String? token) async {
-    try {
-      final newHospital =
-      await _apiService.addHospital(hospital, token);
-      _hospitals.add(newHospital);
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = e.toString();
-      notifyListeners();
-    }
-  }*/
-
   /// UPDATE
   Future<bool> updateHospital(
-      String id, HospitalModel hospital, String? token) async {
+    String id,
+    HospitalModel hospital,
+    String? token,
+  ) async {
     try {
-      final updated =
-      await _apiService.updateHospital(id, hospital, token);
+      final updated = await _apiService.updateHospital(id, hospital, token);
 
       final index = _hospitals.indexWhere((h) => h.id == id);
       if (index != -1) {
@@ -89,14 +81,16 @@ class HospitalProvider with ChangeNotifier {
   }
 
   /// DELETE
-  Future<void> deleteHospital(String id, String? token) async {
+  Future<void> deleteAccount(String id) async {
     try {
-      await _apiService.deleteHospital(id, token);
+      // Call backend to delete account from MongoDB
+      await _apiService.deleteAccount(id);
+
       _hospitals.removeWhere((h) => h.id == id);
 
-      if (_currentHospital?.id == id) {
-        _currentHospital = null;
-      }
+      _currentHospital = null;
+
+      await _apiService.logout();
 
       notifyListeners();
     } catch (e) {
@@ -132,9 +126,4 @@ class HospitalProvider with ChangeNotifier {
     _isLoading = value;
     notifyListeners();
   }
-
-  /*void clearError() {
-    _errorMessage = null;
-    notifyListeners();
-  }*/
 }

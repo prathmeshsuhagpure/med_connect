@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-
-enum UserRole { patient, doctor, hospital }
+import 'package:provider/provider.dart';
+import '../../models/notification_model.dart';
+import '../../services/notification_service.dart';
+import '../../providers/authentication_provider.dart';
 
 class NotificationScreen extends StatefulWidget {
-  final UserRole userRole;
-
-  const NotificationScreen({
-    super.key,
-    this.userRole = UserRole.patient,
-  });
+  const NotificationScreen({super.key});
 
   @override
   State<NotificationScreen> createState() => _NotificationScreenState();
@@ -17,12 +14,38 @@ class NotificationScreen extends StatefulWidget {
 class _NotificationScreenState extends State<NotificationScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final NotificationService _notificationService = NotificationService();
+  List<NotificationItem> _notifications = [];
   bool _showOnlyUnread = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _loadNotifications();
+  }
+
+  // ✅ Load notifications from service
+  void _loadNotifications() {
+    setState(() {
+      _notifications = _notificationService.notifications;
+    });
+
+    // ✅ Listen to notification changes
+    _notificationService.setNotificationsChangedCallback((notifications) {
+      if (mounted) {
+        setState(() {
+          _notifications = notifications;
+        });
+      }
+    });
+
+    // ✅ Handle notification opened/tapped
+    _notificationService.setNotificationOpenedCallback((notification) {
+      if (mounted) {
+        _handleNotificationTap(notification);
+      }
+    });
   }
 
   @override
@@ -30,6 +53,15 @@ class _NotificationScreenState extends State<NotificationScreen>
     _tabController.dispose();
     super.dispose();
   }
+
+  // ✅ Get filtered notifications
+  List<NotificationItem> get _allNotifications => _notifications;
+
+  List<NotificationItem> get _unreadNotifications =>
+      _notifications.where((n) => n.isNew).toList();
+
+  List<NotificationItem> get _readNotifications =>
+      _notifications.where((n) => !n.isNew).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -64,8 +96,8 @@ class _NotificationScreenState extends State<NotificationScreen>
                 _markAllAsRead();
               } else if (value == 'clear_all') {
                 _showClearAllDialog(context, isDarkMode);
-              } else if (value == 'settings') {
-                // TODO: Navigate to notification settings
+              } else if (value == 'test') {
+                _sendTestNotification();
               }
             },
             itemBuilder: (context) => [
@@ -90,12 +122,12 @@ class _NotificationScreenState extends State<NotificationScreen>
                 ),
               ),
               const PopupMenuItem(
-                value: 'settings',
+                value: 'test',
                 child: Row(
                   children: [
-                    Icon(Icons.settings),
+                    Icon(Icons.bug_report),
                     SizedBox(width: 12),
-                    Text('Settings'),
+                    Text('Send Test'),
                   ],
                 ),
               ),
@@ -135,9 +167,9 @@ class _NotificationScreenState extends State<NotificationScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildAllTab(context, isMobile, isDarkMode),
-                _buildUnreadTab(context, isMobile, isDarkMode),
-                _buildReadTab(context, isMobile, isDarkMode),
+                _buildNotificationList(_allNotifications, isMobile, isDarkMode),
+                _buildNotificationList(_unreadNotifications, isMobile, isDarkMode),
+                _buildNotificationList(_readNotifications, isMobile, isDarkMode),
               ],
             ),
           ),
@@ -148,9 +180,7 @@ class _NotificationScreenState extends State<NotificationScreen>
 
   Widget _buildSummaryCard(
       BuildContext context, bool isMobile, bool isDarkMode) {
-    final unreadCount = _getNotifications()
-        .where((n) => !n.isRead)
-        .length;
+    final unreadCount = _unreadNotifications.length;
 
     return Container(
       margin: EdgeInsets.all(isMobile ? 16 : 24),
@@ -187,14 +217,15 @@ class _NotificationScreenState extends State<NotificationScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "You have $unreadCount unread notifications",
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  "You have $unreadCount unread notification${unreadCount != 1 ? 's' : ''}",
+                  style: const TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "Stay updated with your appointments and activities",
+                  "Total: ${_notifications.length} notifications",
                   style: TextStyle(
                     fontSize: 13,
                     color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
@@ -203,100 +234,55 @@ class _NotificationScreenState extends State<NotificationScreen>
               ],
             ),
           ),
+          if (unreadCount > 0)
+            TextButton(
+              onPressed: _markAllAsRead,
+              child: const Text("Mark all read"),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildAllTab(BuildContext context, bool isMobile, bool isDarkMode) {
-    final notifications = _getNotifications();
-    return _buildNotificationList(notifications, isMobile, isDarkMode);
-  }
-
-  Widget _buildUnreadTab(BuildContext context, bool isMobile, bool isDarkMode) {
-    final notifications = _getNotifications()
-        .where((n) => !n.isRead)
-        .toList();
-
-    if (notifications.isEmpty) {
-      return _buildEmptyState(
-        context,
-        Icons.notifications_none,
-        "No Unread Notifications",
-        "You're all caught up!",
-        isDarkMode,
-      );
-    }
-
-    return _buildNotificationList(notifications, isMobile, isDarkMode);
-  }
-
-  Widget _buildReadTab(BuildContext context, bool isMobile, bool isDarkMode) {
-    final notifications = _getNotifications()
-        .where((n) => n.isRead)
-        .toList();
-
-    if (notifications.isEmpty) {
-      return _buildEmptyState(
-        context,
-        Icons.check_circle_outline,
-        "No Read Notifications",
-        "Read notifications will appear here",
-        isDarkMode,
-      );
-    }
-
-    return _buildNotificationList(notifications, isMobile, isDarkMode);
-  }
-
   Widget _buildNotificationList(
-      List<_NotificationData> notifications,
+      List<NotificationItem> notifications,
       bool isMobile,
       bool isDarkMode,
       ) {
-    // Group notifications by date
-    final groupedNotifications = _groupNotificationsByDate(notifications);
+    if (notifications.isEmpty) {
+      return _buildEmptyState(
+        isDarkMode,
+        "No notifications",
+        "You're all caught up!",
+      );
+    }
 
-    return ListView.builder(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
-      itemCount: groupedNotifications.length,
-      itemBuilder: (context, index) {
-        final dateGroup = groupedNotifications[index];
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Date Header
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                dateGroup['date'] as String,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                ),
-              ),
-            ),
-            // Notifications for this date
-            ...((dateGroup['notifications'] as List<_NotificationData>)
-                .map((notification) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildNotificationCard(
-                  context,
-                  notification,
-                  isDarkMode,
-                ),
-              );
-            })),
-          ],
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        _loadNotifications();
       },
+      child: ListView.builder(
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
+        itemCount: notifications.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildNotificationCard(
+              context,
+              notifications[index],
+              isMobile,
+              isDarkMode,
+            ),
+          );
+        },
+      ),
     );
   }
 
   Widget _buildNotificationCard(
       BuildContext context,
-      _NotificationData notification,
+      NotificationItem notification,
+      bool isMobile,
       bool isDarkMode,
       ) {
     return Dismissible(
@@ -307,70 +293,59 @@ class _NotificationScreenState extends State<NotificationScreen>
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
           color: Colors.red,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       onDismissed: (direction) {
-        setState(() {
-          // TODO: Remove notification
-        });
+        _deleteNotification(notification);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Notification deleted"),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: const Text('Notification deleted'),
+            action: SnackBarAction(
+              label: 'Undo',
+              onPressed: () {
+                // TODO: Implement undo functionality
+              },
+            ),
           ),
         );
       },
       child: InkWell(
-        onTap: () {
-          setState(() {
-            notification.isRead = true;
-          });
-          // TODO: Navigate to relevant screen
-          _handleNotificationTap(notification);
-        },
-        borderRadius: BorderRadius.circular(16),
+        onTap: () => _handleNotificationTap(notification),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: notification.isRead
-                ? (isDarkMode ? Colors.grey[850] : Colors.white)
-                : Theme.of(context).primaryColor.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16),
+            color: notification.isNew
+                ? (isDarkMode
+                ? Colors.blue.withValues(alpha: 0.1)
+                : Colors.blue.withValues(alpha: 0.05))
+                : (isDarkMode ? Colors.grey[850] : Colors.white),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: notification.isRead
-                  ? (isDarkMode ? Colors.grey[700]! : Colors.grey[200]!)
-                  : Theme.of(context).primaryColor.withValues(alpha: 0.2),
-              width: notification.isRead ? 1 : 2,
+              color: notification.isNew
+                  ? Theme.of(context).primaryColor.withValues(alpha: 0.3)
+                  : (isDarkMode ? Colors.grey[700]! : Colors.grey[200]!),
             ),
-            boxShadow: [
-              if (!notification.isRead)
-                BoxShadow(
-                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-            ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Icon
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _getNotificationColor(notification.type)
-                      .withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: notification.color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  _getNotificationIcon(notification.type),
-                  color: _getNotificationColor(notification.type),
+                  notification.icon,
+                  color: notification.color,
                   size: 24,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
 
               // Content
               Expanded(
@@ -382,17 +357,15 @@ class _NotificationScreenState extends State<NotificationScreen>
                         Expanded(
                           child: Text(
                             notification.title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                              fontWeight: notification.isRead
-                                  ? FontWeight.w600
-                                  : FontWeight.bold,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: notification.isNew
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
                             ),
                           ),
                         ),
-                        if (!notification.isRead)
+                        if (notification.isNew)
                           Container(
                             width: 8,
                             height: 8,
@@ -405,10 +378,10 @@ class _NotificationScreenState extends State<NotificationScreen>
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      notification.message,
+                      notification.subtitle,
                       style: TextStyle(
-                        fontSize: 14,
-                        color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                        fontSize: 13,
+                        color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
                         height: 1.4,
                       ),
                       maxLines: 2,
@@ -420,57 +393,37 @@ class _NotificationScreenState extends State<NotificationScreen>
                         Icon(
                           Icons.access_time,
                           size: 14,
-                          color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
+                          color:
+                          isDarkMode ? Colors.grey[500] : Colors.grey[500],
                         ),
                         const SizedBox(width: 4),
                         Text(
                           notification.time,
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDarkMode ? Colors.grey[400] : Colors.grey[500],
+                            color: isDarkMode
+                                ? Colors.grey[500]
+                                : Colors.grey[500],
                           ),
                         ),
+                        const Spacer(),
+                        _buildTypeBadge(notification.type, isDarkMode),
                       ],
                     ),
 
-                    // Action Buttons (if applicable)
+                    // Action buttons if available
                     if (notification.actions.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: notification.actions.map((action) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: TextButton(
-                              onPressed: () {
-                                // TODO: Handle action
-                              },
-                              style: TextButton.styleFrom(
-                                backgroundColor: action['isPrimary'] == true
-                                    ? Theme.of(context).primaryColor
-                                    : (isDarkMode
-                                    ? Colors.grey[800]
-                                    : Colors.grey[200]),
-                                foregroundColor: action['isPrimary'] == true
-                                    ? Colors.white
-                                    : (isDarkMode
-                                    ? Colors.grey[300]
-                                    : Colors.grey[800]),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: Text(
-                                action['label'] as String,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
+                          final isPrimary = action['isPrimary'] ?? false;
+                          return _buildActionButton(
+                            action['label'] ?? 'Action',
+                            isPrimary,
+                            isDarkMode,
+                                () => _handleActionTap(notification, action),
                           );
                         }).toList(),
                       ),
@@ -485,141 +438,230 @@ class _NotificationScreenState extends State<NotificationScreen>
     );
   }
 
-  Widget _buildEmptyState(
-      BuildContext context,
-      IconData icon,
-      String title,
-      String subtitle,
-      bool isDarkMode,
-      ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: isDarkMode
-                    ? Colors.grey[800]
-                    : Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 80,
-                color: isDarkMode
-                    ? Colors.grey[600]
-                    : Theme.of(context).primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+  Widget _buildTypeBadge(NotificationType type, bool isDarkMode) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDarkMode
+            ? Colors.grey[800]
+            : Colors.grey[200],
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        _getTypeDisplayName(type),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: isDarkMode ? Colors.grey[400] : Colors.grey[700],
         ),
       ),
     );
   }
 
-  IconData _getNotificationIcon(NotificationType type) {
+  String _getTypeDisplayName(NotificationType type) {
     switch (type) {
       case NotificationType.appointment:
-        return Icons.calendar_today;
+        return 'Appointment';
       case NotificationType.reminder:
-        return Icons.alarm;
+        return 'Reminder';
       case NotificationType.cancellation:
-        return Icons.cancel;
+        return 'Cancellation';
       case NotificationType.prescription:
-        return Icons.medication;
+        return 'Prescription';
       case NotificationType.payment:
-        return Icons.payment;
+        return 'Payment';
       case NotificationType.message:
-        return Icons.message;
+        return 'Message';
       case NotificationType.review:
-        return Icons.star;
-      case NotificationType.general:
-        return Icons.info;
+        return 'Review';
       case NotificationType.emergency:
-        return Icons.emergency;
+        return 'Emergency';
       case NotificationType.report:
-        return Icons.description;
+        return 'Report';
+      case NotificationType.general:
+      default:
+        return 'General';
     }
   }
 
-  Color _getNotificationColor(NotificationType type) {
-    switch (type) {
+  Widget _buildActionButton(
+      String label,
+      bool isPrimary,
+      bool isDarkMode,
+      VoidCallback onPressed,
+      ) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isPrimary
+            ? Theme.of(context).primaryColor
+            : (isDarkMode ? Colors.grey[800] : Colors.grey[200]),
+        foregroundColor: isPrimary
+            ? Colors.white
+            : (isDarkMode ? Colors.grey[300] : Colors.grey[800]),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool isDarkMode, String title, String subtitle) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.notifications_none,
+            size: 80,
+            color: isDarkMode ? Colors.grey[700] : Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDarkMode ? Colors.grey[400] : Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 14,
+              color: isDarkMode ? Colors.grey[500] : Colors.grey[500],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Handle notification tap
+  void _handleNotificationTap(NotificationItem notification) async {
+    // Mark as read
+    await _notificationService.markAsRead(notification);
+
+    // Navigate based on type
+    switch (notification.type) {
       case NotificationType.appointment:
-        return Colors.blue;
-      case NotificationType.reminder:
-        return Colors.orange;
-      case NotificationType.cancellation:
-        return Colors.red;
+      // TODO: Navigate to appointment details
+        if (notification.payload?['appointmentId'] != null) {
+          debugPrint('Navigate to appointment: ${notification.payload!['appointmentId']}');
+          // Navigator.pushNamed(context, '/appointment-details', arguments: notification.payload);
+        }
+        break;
+
       case NotificationType.prescription:
-        return Colors.green;
+      // TODO: Navigate to prescription details
+        debugPrint('Navigate to prescriptions');
+        break;
+
       case NotificationType.payment:
-        return Colors.purple;
+      // TODO: Navigate to payment screen
+        debugPrint('Navigate to payments');
+        break;
+
       case NotificationType.message:
-        return Colors.cyan;
-      case NotificationType.review:
-        return Colors.amber;
-      case NotificationType.general:
-        return Colors.grey;
+      // TODO: Navigate to messages
+        debugPrint('Navigate to messages');
+        break;
+
       case NotificationType.emergency:
-        return Colors.red;
-      case NotificationType.report:
-        return Colors.indigo;
+      // TODO: Show emergency details
+        debugPrint('Show emergency details');
+        break;
+
+      default:
+      // Show notification details
+        _showNotificationDetails(notification);
     }
   }
 
-  List<Map<String, dynamic>> _groupNotificationsByDate(
-      List<_NotificationData> notifications) {
-    final Map<String, List<_NotificationData>> grouped = {};
+  // ✅ Handle action button tap
+  void _handleActionTap(NotificationItem notification, Map<String, dynamic> action) {
+    debugPrint('Action tapped: ${action['label']} for notification ${notification.id}');
 
-    for (var notification in notifications) {
-      if (!grouped.containsKey(notification.date)) {
-        grouped[notification.date] = [];
-      }
-      grouped[notification.date]!.add(notification);
+    // Handle specific actions
+    final label = action['label']?.toString().toLowerCase() ?? '';
+
+    if (label.contains('view')) {
+      _handleNotificationTap(notification);
+    } else if (label.contains('reschedule')) {
+      // TODO: Navigate to reschedule screen
+      debugPrint('Navigate to reschedule');
+    } else if (label.contains('accept')) {
+      // TODO: Accept appointment
+      debugPrint('Accept appointment');
+    } else if (label.contains('decline')) {
+      // TODO: Decline appointment
+      debugPrint('Decline appointment');
     }
-
-    return grouped.entries
-        .map((entry) => {
-      'date': entry.key,
-      'notifications': entry.value,
-    })
-        .toList();
   }
 
-  void _markAllAsRead() {
-    setState(() {
-      for (var notification in _getNotifications()) {
-        notification.isRead = true;
-      }
-    });
+  // ✅ Show notification details dialog
+  void _showNotificationDetails(NotificationItem notification) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(notification.icon, color: notification.color),
+            const SizedBox(width: 12),
+            Expanded(child: Text(notification.title)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(notification.subtitle),
+            const SizedBox(height: 12),
+            Text(
+              notification.time,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Mark all as read
+  void _markAllAsRead() async {
+    await _notificationService.markAllAsRead();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("All notifications marked as read"),
+        content: Text('All notifications marked as read'),
         duration: Duration(seconds: 2),
       ),
     );
   }
 
+  // ✅ Delete notification
+  void _deleteNotification(NotificationItem notification) async {
+    await _notificationService.deleteNotification(notification.id);
+  }
+
+  // ✅ Clear all notifications
   void _showClearAllDialog(BuildContext context, bool isDarkMode) {
     showDialog(
       context: context,
@@ -627,24 +669,11 @@ class _NotificationScreenState extends State<NotificationScreen>
         return AlertDialog(
           backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
           ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.clear_all, color: Colors.red),
-              ),
-              const SizedBox(width: 16),
-              const Expanded(child: Text("Clear All")),
-            ],
-          ),
+          title: const Text("Clear All Notifications?"),
           content: const Text(
-            "Are you sure you want to clear all notifications? This action cannot be undone.",
+            "This will permanently delete all notifications. This action cannot be undone.",
           ),
           actions: [
             TextButton(
@@ -652,17 +681,16 @@ class _NotificationScreenState extends State<NotificationScreen>
               child: const Text("Cancel"),
             ),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                setState(() {
-                  // TODO: Clear all notifications
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("All notifications cleared"),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+              onPressed: () async {
+                await _notificationService.clearAllNotifications();
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('All notifications cleared'),
+                    ),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red,
@@ -675,257 +703,20 @@ class _NotificationScreenState extends State<NotificationScreen>
     );
   }
 
-  void _handleNotificationTap(_NotificationData notification) {
-    // TODO: Navigate based on notification type
-    switch (notification.type) {
-      case NotificationType.appointment:
-      // Navigate to appointment details
-        break;
-      case NotificationType.reminder:
-      // Navigate to appointment or calendar
-        break;
-      case NotificationType.prescription:
-      // Navigate to prescription details
-        break;
-      case NotificationType.payment:
-      // Navigate to payment screen
-        break;
-      case NotificationType.message:
-      // Navigate to messages/chat
-        break;
-      default:
-        break;
+  // ✅ Send test notification (for development)
+  void _sendTestNotification() async {
+    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final userRole = authProvider.userRole ?? 'patient';
+
+    await _notificationService.sendTestNotification(userRole);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Test notification sent'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
-
-  List<_NotificationData> _getNotifications() {
-    // Different notifications based on user role
-    switch (widget.userRole) {
-      case UserRole.patient:
-        return _getPatientNotifications();
-      case UserRole.doctor:
-        return _getDoctorNotifications();
-      case UserRole.hospital:
-        return _getHospitalNotifications();
-    }
-  }
-
-  List<_NotificationData> _getPatientNotifications() {
-    return [
-      _NotificationData(
-        id: '1',
-        type: NotificationType.appointment,
-        title: 'Appointment Confirmed',
-        message: 'Your appointment with Dr. Sarah Johnson is confirmed for tomorrow at 10:30 AM.',
-        time: '2 hours ago',
-        date: 'Today',
-        isRead: false,
-        actions: [
-          {'label': 'View Details', 'isPrimary': true},
-          {'label': 'Reschedule', 'isPrimary': false},
-        ],
-      ),
-      _NotificationData(
-        id: '2',
-        type: NotificationType.reminder,
-        title: 'Appointment Reminder',
-        message: 'You have an appointment with Dr. Michael Brown in 24 hours.',
-        time: '5 hours ago',
-        date: 'Today',
-        isRead: false,
-        actions: [
-          {'label': 'View', 'isPrimary': true},
-        ],
-      ),
-      _NotificationData(
-        id: '3',
-        type: NotificationType.prescription,
-        title: 'New Prescription Available',
-        message: 'Dr. Sarah Johnson has added a new prescription for you. View details and purchase.',
-        time: '1 day ago',
-        date: 'Yesterday',
-        isRead: true,
-        actions: [
-          {'label': 'View Prescription', 'isPrimary': true},
-        ],
-      ),
-      _NotificationData(
-        id: '4',
-        type: NotificationType.payment,
-        title: 'Payment Successful',
-        message: 'Your payment of \$150.00 for appointment #APT123 was successful.',
-        time: '2 days ago',
-        date: 'Feb 5, 2026',
-        isRead: true,
-      ),
-      _NotificationData(
-        id: '5',
-        type: NotificationType.review,
-        title: 'Rate Your Experience',
-        message: 'How was your visit with Dr. Robert Wilson? Share your feedback.',
-        time: '3 days ago',
-        date: 'Feb 4, 2026',
-        isRead: true,
-        actions: [
-          {'label': 'Rate Now', 'isPrimary': true},
-          {'label': 'Later', 'isPrimary': false},
-        ],
-      ),
-    ];
-  }
-
-  List<_NotificationData> _getDoctorNotifications() {
-    return [
-      _NotificationData(
-        id: '1',
-        type: NotificationType.appointment,
-        title: 'New Appointment Request',
-        message: 'Sarah Johnson has requested an appointment for tomorrow at 2:00 PM.',
-        time: '1 hour ago',
-        date: 'Today',
-        isRead: false,
-        actions: [
-          {'label': 'Accept', 'isPrimary': true},
-          {'label': 'Decline', 'isPrimary': false},
-        ],
-      ),
-      _NotificationData(
-        id: '2',
-        type: NotificationType.reminder,
-        title: 'Upcoming Appointment',
-        message: 'You have an appointment with Robert Williams in 30 minutes.',
-        time: '3 hours ago',
-        date: 'Today',
-        isRead: false,
-      ),
-      _NotificationData(
-        id: '3',
-        type: NotificationType.cancellation,
-        title: 'Appointment Cancelled',
-        message: 'Lisa Anderson has cancelled her appointment scheduled for Feb 10.',
-        time: '5 hours ago',
-        date: 'Today',
-        isRead: true,
-      ),
-      _NotificationData(
-        id: '4',
-        type: NotificationType.message,
-        title: 'New Message',
-        message: 'You have a new message from patient John Doe regarding medication dosage.',
-        time: '1 day ago',
-        date: 'Yesterday',
-        isRead: true,
-        actions: [
-          {'label': 'Reply', 'isPrimary': true},
-        ],
-      ),
-      _NotificationData(
-        id: '5',
-        type: NotificationType.report,
-        title: 'Lab Results Ready',
-        message: 'Lab results for patient Emma Thompson are now available for review.',
-        time: '2 days ago',
-        date: 'Feb 5, 2026',
-        isRead: true,
-        actions: [
-          {'label': 'View Results', 'isPrimary': true},
-        ],
-      ),
-    ];
-  }
-
-  List<_NotificationData> _getHospitalNotifications() {
-    return [
-      _NotificationData(
-        id: '1',
-        type: NotificationType.appointment,
-        title: 'New Appointment Booked',
-        message: '5 new appointments have been scheduled for today across all departments.',
-        time: '30 minutes ago',
-        date: 'Today',
-        isRead: false,
-        actions: [
-          {'label': 'View All', 'isPrimary': true},
-        ],
-      ),
-      _NotificationData(
-        id: '2',
-        type: NotificationType.emergency,
-        title: 'Emergency Alert',
-        message: 'Emergency department at 90% capacity. Additional staff may be required.',
-        time: '2 hours ago',
-        date: 'Today',
-        isRead: false,
-        actions: [
-          {'label': 'View Status', 'isPrimary': true},
-        ],
-      ),
-      _NotificationData(
-        id: '3',
-        type: NotificationType.payment,
-        title: 'Payment Received',
-        message: 'Payment of \$2,450.00 received from insurance company for claim #CLM789.',
-        time: '4 hours ago',
-        date: 'Today',
-        isRead: true,
-      ),
-      _NotificationData(
-        id: '4',
-        type: NotificationType.general,
-        title: 'System Maintenance',
-        message: 'Scheduled maintenance on Feb 10, 2026 from 2:00 AM to 4:00 AM.',
-        time: '1 day ago',
-        date: 'Yesterday',
-        isRead: true,
-      ),
-      _NotificationData(
-        id: '5',
-        type: NotificationType.review,
-        title: 'New Reviews',
-        message: '12 new patient reviews have been posted. Overall rating: 4.8 stars.',
-        time: '2 days ago',
-        date: 'Feb 5, 2026',
-        isRead: true,
-        actions: [
-          {'label': 'View Reviews', 'isPrimary': true},
-        ],
-      ),
-    ];
-  }
-}
-
-// Enums and Helper Classes
-enum NotificationType {
-  appointment,
-  reminder,
-  cancellation,
-  prescription,
-  payment,
-  message,
-  review,
-  general,
-  emergency,
-  report,
-}
-
-class _NotificationData {
-  final String id;
-  final NotificationType type;
-  final String title;
-  final String message;
-  final String time;
-  final String date;
-  bool isRead;
-  final List<Map<String, dynamic>> actions;
-
-  _NotificationData({
-    required this.id,
-    required this.type,
-    required this.title,
-    required this.message,
-    required this.time,
-    required this.date,
-    this.isRead = false,
-    this.actions = const [],
-  });
 }

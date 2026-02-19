@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart';
+import 'package:provider/provider.dart';
 
 import '../../providers/authentication_provider.dart';
+import '../../providers/hospital_provider.dart';
 
 class HospitalSettingsScreen extends StatefulWidget {
   const HospitalSettingsScreen({super.key});
@@ -682,24 +685,12 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
           _buildSettingTile(
             context,
             Icons.delete_forever,
-            "Delete All Data",
+            "Delete Account Permanently",
             "Permanently delete all hospital data",
             Colors.red,
             isDarkMode,
             onTap: () {
               _showDeleteDataDialog(context, isDarkMode);
-            },
-          ),
-          _buildDivider(isDarkMode),
-          _buildSettingTile(
-            context,
-            Icons.cancel,
-            "Deactivate Account",
-            "Temporarily deactivate hospital account",
-            Colors.orange,
-            isDarkMode,
-            onTap: () {
-              _showDeactivateDialog(context, isDarkMode);
             },
           ),
           _buildDivider(isDarkMode),
@@ -1155,91 +1146,94 @@ class _HospitalSettingsScreenState extends State<HospitalSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.delete_forever, color: Colors.red),
+        final provider = Provider.of<HospitalProvider>(context, listen: false);
+        final authProvider = Provider.of<AuthenticationProvider>(
+          context,
+          listen: false,
+        );
+        final hospitalId = authProvider.currentUser?.id;
+
+        bool isLoading = false;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(width: 16),
-              const Expanded(child: Text("Delete All Data")),
-            ],
-          ),
-          content: const Text(
-            "WARNING: This will permanently delete all hospital data including appointments, patients, and records. This action CANNOT be undone!",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Delete all data
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text("Delete Everything"),
-            ),
-          ],
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.delete_forever, color: Colors.red),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text("Delete Account Permanently"),
+                  ),
+                ],
+              ),
+              content: isLoading
+                  ? const SizedBox(
+                height: 80,
+                child: Center(child: CircularProgressIndicator()),
+              )
+                  : const Text(
+                "WARNING: This will permanently delete all hospital data "
+                    "including appointments, patients, and records. "
+                    "This action CANNOT be undone!",
+              ),
+              actions: [
+                if (!isLoading)
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Cancel"),
+                  ),
+                ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                    setState(() {
+                      isLoading = true;
+                    });
+                    if (hospitalId != null) {
+                      await provider.deleteAccount(hospitalId);
+                      if (!context.mounted) return;
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/login',
+                            (route) => false,
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    padding: const EdgeInsets.all(10),
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Text("Delete Account"),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
 
-  void _showDeactivateDialog(BuildContext context, bool isDarkMode) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.cancel, color: Colors.orange),
-              ),
-              const SizedBox(width: 16),
-              const Text("Deactivate Account"),
-            ],
-          ),
-          content: const Text(
-            "Your account will be temporarily deactivated. You can reactivate it anytime by logging in again.",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Deactivate account
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              child: const Text("Deactivate"),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   void _showLogoutDialog(
     BuildContext context,

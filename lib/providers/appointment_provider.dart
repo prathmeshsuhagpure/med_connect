@@ -648,7 +648,6 @@ class AppointmentProvider extends ChangeNotifier {
     return result;
   }
 
-  // ✅ NEW: Update appointment status (for hospital to confirm/complete)
   Future<Map<String, dynamic>> updateAppointmentStatus(
     String appointmentId,
     AppointmentStatus newStatus,
@@ -689,6 +688,30 @@ class AppointmentProvider extends ChangeNotifier {
     }
 
     return result;
+  }
+
+  Future<void> completeAppointment(String appointmentId, String token) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      await _apiService.completeAppointment(appointmentId, token);
+
+      // Update local appointment status
+      final index = _appointments.indexWhere((a) => a.id == appointmentId);
+
+      if (index != -1) {
+        _appointments[index] = _appointments[index].copyWith(
+          status: AppointmentStatus.completed,
+        );
+      }
+    } catch (e) {
+      _error = e.toString();
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   void clearAppointments() {

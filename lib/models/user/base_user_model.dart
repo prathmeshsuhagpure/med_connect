@@ -4,7 +4,6 @@ abstract class BaseUser {
   final String? email;
   final String role;
   final String? phoneNumber;
-  final String? profilePicture;
   final String? address;
   final DateTime? createdAt;
   final DateTime? updatedAt;
@@ -15,7 +14,6 @@ abstract class BaseUser {
     required this.email,
     required this.role,
     required this.phoneNumber,
-    this.profilePicture,
     this.address,
     this.createdAt,
     this.updatedAt,

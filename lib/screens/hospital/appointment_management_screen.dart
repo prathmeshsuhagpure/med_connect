@@ -1190,78 +1190,108 @@ class _AppointmentManagementScreenState
   }
 
   void _showConfirmDialog(
-    BuildContext context,
-    AppointmentModel appointment,
-    bool isDarkMode,
-  ) {
+      BuildContext context,
+      AppointmentModel appointment,
+      bool isDarkMode,
+      ) {
     final newStatus = appointment.status == AppointmentStatus.pending
         ? AppointmentStatus.confirmed
         : AppointmentStatus.completed;
-    final action = newStatus == AppointmentStatus.confirmed
-        ? "Confirm"
-        : "Complete";
+    final action =
+    newStatus == AppointmentStatus.confirmed ? "Confirm" : "Complete";
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.check_circle, color: Colors.green),
+        bool isLoading = false;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(width: 16),
-              Expanded(child: Text("$action Appointment")),
-            ],
-          ),
-          content: Text(
-            "$action appointment for ${appointment.patientName ?? 'this patient'}?",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final provider = Provider.of<AppointmentProvider>(
-                  context,
-                  listen: false,
-                );
-
-                final result = await provider.updateAppointmentStatus(
-                  appointment.id,
-                  newStatus,
-                );
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        result['message'] ??
-                            "Appointment ${action.toLowerCase()}ed",
-                      ),
-                      backgroundColor: result['success']
-                          ? Colors.green
-                          : Colors.red,
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1), // ✅ fixed
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: Text(action),
-            ),
-          ],
+                    child: const Icon(Icons.check_circle, color: Colors.green),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(child: Text("$action Appointment")),
+                ],
+              ),
+              content: isLoading
+                  ? const SizedBox(
+                height: 80,
+                child: Center(child: CircularProgressIndicator()),
+              )
+                  : Text(
+                "$action appointment for ${appointment.patientName ?? 'this patient'}?",
+              ),
+              actions: [
+                if (!isLoading)
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Cancel"),
+                  ),
+                ElevatedButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                    setState(() {
+                      isLoading = true;
+                    });
+
+                    final provider = Provider.of<AppointmentProvider>(
+                      context,
+                      listen: false,
+                    );
+
+                    final result = await provider.updateAppointmentStatus(
+                      appointment.id,
+                      newStatus,
+                    );
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            result['message'] ??
+                                "Appointment ${action.toLowerCase()}ed",
+                          ),
+                          backgroundColor: result['success']
+                              ? Colors.green
+                              : Colors.red,
+                        ),
+                      );
+                    }
+
+                    setState(() {
+                      isLoading = false;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: isLoading
+                      ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : Text(action),
+                ),
+              ],
+            );
+          },
         );
       },
     );

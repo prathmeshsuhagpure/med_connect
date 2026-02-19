@@ -302,7 +302,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
                         context,
                         MaterialPageRoute(
                           builder: (context) =>
-                              NotificationScreen(userRole: UserRole.patient),
+                              NotificationScreen(/*userRole: UserRole.patient*/),
                         ),
                       );
                     },
